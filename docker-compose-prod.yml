@@ -3,12 +3,11 @@ version: '3.8'
 services:
   mongo:
     image: mongo:4.4
-    ports:
-      - "27017:27017"
     volumes:
       - mongo-data:/data/db
     environment:
       MONGO_INITDB_DATABASE: streamvpn
+    restart: unless-stopped
 
   backend:
     build: .
@@ -16,12 +15,14 @@ services:
       - "3000:3000"
     depends_on:
       - mongo
+    env_file:
+      - .env
     environment:
       MONGODB_URI: mongodb://mongo:27017/streamvpn
-      JWT_SECRET: seu_segredo_super_secreto
       PORT: 3000
     volumes:
       - ./backend:/app/backend
+    restart: unless-stopped
 
 volumes:
   mongo-data:
