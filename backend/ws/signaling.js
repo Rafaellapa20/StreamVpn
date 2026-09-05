@@ -67,10 +67,17 @@ function attachAdmin(ws) {
 
     switch (msg.type) {
       case 'watch':
-        if (target) target.watchedBy.add(ws);
+        if (target) {
+          const wasEmpty = target.watchedBy.size === 0;
+          target.watchedBy.add(ws);
+          if (wasEmpty) safeSend(target.ws, { type: 'watch-requested' });
+        }
         break;
       case 'unwatch':
-        if (target) target.watchedBy.delete(ws);
+        if (target) {
+          target.watchedBy.delete(ws);
+          if (target.watchedBy.size === 0) safeSend(target.ws, { type: 'stop-streaming' });
+        }
         break;
       case 'offer':
       case 'answer':

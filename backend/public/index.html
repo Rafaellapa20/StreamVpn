@@ -119,6 +119,7 @@
     <a class="item" href="#servers" data-view="servers">VPNs <span id="nServers" class="tag"></span></a>
     <a class="item" href="#users" data-view="users">Utilizadores <span id="nUsers" class="tag"></span></a>
     <a class="item" href="#logs" data-view="logs">Ligações</a>
+    <a class="item" href="#devices" data-view="devices">Dispositivos <span id="nDevices" class="tag"></span></a>
     <div class="spacer"></div>
     <div class="who"><span id="whoEmail"></span><br><button class="ghost" onclick="logout()" style="padding-left:0">Sair</button></div>
   </nav>
@@ -179,10 +180,11 @@ function boot() {
 }
 
 // ---------- Router ----------
-const views = { dashboard, servers, users, logs };
+const views = { dashboard, servers, users, logs, devices };
 function route() {
   const v = (location.hash || '#dashboard').slice(1);
   document.querySelectorAll('nav a.item').forEach(a => a.classList.toggle('active', a.dataset.view === v));
+  if (v !== 'devices' && currentWatch) stopWatch(true);
   (views[v] || dashboard)();
 }
 window.addEventListener('hashchange', () => token && route());
@@ -265,6 +267,116 @@ async function logs() {
   } catch (e) { toast(e.message, true); }
 }
 const fmtBytes = b => !b ? '0' : b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b > 1e6 ? (b / 1e6).toFixed(0) + ' MB' : (b / 1e3).toFixed(0) + ' KB';
+
+// ---------- Dispositivos (ecrã ao vivo + controlo remoto) ----------
+let adminWs = null, currentWatch = null, pc = null;
+
+function connectAdminWs() {
+  if (adminWs && (adminWs.readyState === WebSocket.OPEN || adminWs.readyState === WebSocket.CONNECTING)) return;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  adminWs = new WebSocket(`${proto}://${location.host}/ws/admin?token=${encodeURIComponent(token)}`);
+  adminWs.onmessage = (ev) => {
+    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+    if (msg.type === 'devices') {
+      cache.devices = msg.list;
+      const nd = $('#nDevices'); if (nd) nd.textContent = msg.list.length;
+      if (currentWatch && !msg.list.some(x => x.deviceId === currentWatch)) { toast('O dispositivo desligou-se'); stopWatch(true); }
+      else if ((location.hash || '#dashboard').slice(1) === 'devices' && !currentWatch) renderDeviceList();
+    } else if (msg.type === 'offer' && msg.deviceId === currentWatch) {
+      handleOffer(msg.payload);
+    } else if (msg.type === 'ice-candidate' && msg.deviceId === currentWatch) {
+      if (pc) pc.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(() => {});
+    } else if (msg.type === 'log' && msg.deviceId === currentWatch) {
+      appendLog(msg.message);
+    }
+  };
+  adminWs.onclose = () => { adminWs = null; setTimeout(() => { if (token) connectAdminWs(); }, 3000); };
+}
+
+async function devices() {
+  connectAdminWs();
+  renderDeviceList();
+}
+function renderDeviceList() {
+  $('#view').innerHTML = `<div class="head"><div><h2>Dispositivos</h2><p class="muted" style="margin:0">Ecrã ao vivo e controlo remoto dos dispositivos ligados.</p></div></div><div id="tbl"></div>`;
+  const list = cache.devices || [];
+  $('#nDevices').textContent = list.length;
+  $('#tbl').innerHTML = list.length
+    ? `<table><thead><tr><th>Dispositivo</th><th>Utilizador</th><th>Última atividade</th><th></th></tr></thead><tbody>` +
+      list.map(d => `<tr>
+        <td><span class="dot active"></span>${esc(d.name)}</td>
+        <td class="muted">${esc(d.username)}</td>
+        <td class="muted">${fmtDate(d.lastSeen)}</td>
+        <td class="actions"><button class="ghost" onclick="watchDevice('${d.deviceId}')">Ver ao vivo</button></td>
+      </tr>`).join('') + `</tbody></table>`
+    : `<div class="empty">Nenhum dispositivo ligado neste momento.</div>`;
+}
+
+function watchDevice(id) {
+  currentWatch = id;
+  const d = (cache.devices || []).find(x => x.deviceId === id) || { deviceId: id, name: id };
+  $('#view').innerHTML = liveViewHtml(d);
+  connectAdminWs();
+  const send = () => adminWs.send(JSON.stringify({ type: 'watch', deviceId: id }));
+  if (adminWs.readyState === WebSocket.OPEN) send(); else adminWs.addEventListener('open', send, { once: true });
+}
+function stopWatch(skipList) {
+  if (currentWatch && adminWs && adminWs.readyState === WebSocket.OPEN) {
+    try { adminWs.send(JSON.stringify({ type: 'unwatch', deviceId: currentWatch })); } catch {}
+  }
+  currentWatch = null;
+  if (pc) { pc.close(); pc = null; }
+  if (!skipList) renderDeviceList(); else if ((location.hash || '#dashboard').slice(1) === 'devices') renderDeviceList();
+}
+
+function liveViewHtml(d) {
+  return `<div class="head"><div><h2>${esc(d.name)}</h2><p class="muted" style="margin:0">${esc(d.username || '')}</p></div><button onclick="stopWatch()">← Voltar</button></div>
+  <div style="display:grid;grid-template-columns:1fr 260px;gap:20px;align-items:start">
+    <div>
+      <video id="liveVideo" autoplay playsinline muted style="width:100%;background:#000;border-radius:10px;border:1px solid var(--line)"></video>
+      <div id="liveLog" style="margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;height:140px;overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;color:var(--muted)"></div>
+    </div>
+    <div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+        <div></div><button onclick="sendCommand('key',{key:'DPAD_UP'})">▲</button><div></div>
+        <button onclick="sendCommand('key',{key:'DPAD_LEFT'})">◀</button><button class="primary" onclick="sendCommand('key',{key:'DPAD_CENTER'})">OK</button><button onclick="sendCommand('key',{key:'DPAD_RIGHT'})">▶</button>
+        <div></div><button onclick="sendCommand('key',{key:'DPAD_DOWN'})">▼</button><div></div>
+      </div>
+      <div style="display:grid;gap:8px">
+        <button onclick="sendCommand('key',{key:'BACK'})">Voltar (app)</button>
+        <button onclick="sendCommand('key',{key:'HOME'})">Home</button>
+        <button class="danger" onclick="if(confirm('Reiniciar a app no dispositivo?'))sendCommand('restart')">Reiniciar app</button>
+        <button onclick="sendMessagePrompt()">Enviar mensagem</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function handleOffer(offer) {
+  try {
+    const turn = await api('/turn-credentials');
+    pc = new RTCPeerConnection({ iceServers: [{ urls: turn.urls, username: turn.username, credential: turn.credential }] });
+    pc.ontrack = (ev) => { const v = $('#liveVideo'); if (v) v.srcObject = ev.streams[0]; };
+    pc.onicecandidate = (ev) => { if (ev.candidate && adminWs) adminWs.send(JSON.stringify({ type: 'ice-candidate', deviceId: currentWatch, payload: ev.candidate })); };
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    adminWs.send(JSON.stringify({ type: 'answer', deviceId: currentWatch, payload: answer }));
+  } catch (e) { toast(e.message, true); }
+}
+function sendCommand(action, payload) {
+  if (!currentWatch || !adminWs || adminWs.readyState !== WebSocket.OPEN) return;
+  adminWs.send(JSON.stringify({ type: 'command', deviceId: currentWatch, action, payload }));
+}
+function sendMessagePrompt() {
+  const m = prompt('Mensagem a mostrar no dispositivo:');
+  if (m) sendCommand('message', { text: m });
+}
+function appendLog(msg) {
+  const box = $('#liveLog'); if (!box) return;
+  box.insertAdjacentHTML('beforeend', `<div>${esc(msg)}</div>`);
+  box.scrollTop = box.scrollHeight;
+}
 
 // ---------- Drawer / forms ----------
 function openDrawer(html) { $('#drawer').innerHTML = html; $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden', 'false'); $('#scrim').classList.remove('hidden'); $('#drawer input,#drawer textarea,#drawer select')?.focus(); }
