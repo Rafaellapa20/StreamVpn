@@ -59,19 +59,39 @@ router.post('/vpn/reconnect', auth, async (req, res) => {
   }
 });
 
-// 5. Available Servers
+// 5. Available Servers — se o admin atribuiu uma VPN ao utilizador, só essa aparece
 router.get('/vpn/available-servers', auth, async (req, res) => {
   try {
-    const servers = await VpnServer.find({ status: 'active' });
+    const user = await User.findById(req.user._id).select('assignedVpn');
+    const filter = { status: 'active', ...(user?.assignedVpn ? { _id: user.assignedVpn } : {}) };
+    const servers = await VpnServer.find(filter).select('-config');
     res.json(servers.map(s => ({
       id: s._id,
       name: s.name,
       location: s.location,
       country: s.country,
+      endpoint: s.endpoint,
+      assigned: !!user?.assignedVpn,
       ping: Math.floor(Math.random() * 50) + 10
     })));
   } catch (err) {
     res.status(500).json({ error: 'Erro ao obter servidores' });
+  }
+});
+
+// 5b. Config — a configuração WireGuard que a app deve usar (VPN atribuída, ou a primeira ativa)
+router.get('/vpn/config', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('assignedVpn active');
+    if (!user) return res.status(404).json({ error: 'Utilizador não encontrado' });
+    if (user.active === false) return res.status(403).json({ error: 'Conta desativada' });
+    const server = user.assignedVpn
+      ? await VpnServer.findOne({ _id: user.assignedVpn, status: 'active' })
+      : await VpnServer.findOne({ status: 'active' }).sort({ createdAt: 1 });
+    if (!server) return res.status(404).json({ error: 'Nenhuma VPN disponível para esta conta' });
+    res.json({ id: server._id, name: server.name, endpoint: server.endpoint, protocol: server.protocol, config: server.config });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao obter configuração' });
   }
 });
 

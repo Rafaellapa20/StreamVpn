@@ -8,63 +8,90 @@ const { adminAuth } = require('../middleware/auth');
 
 router.use(adminAuth);
 
-// ---- Dashboard ----
+// ---- Visão geral ----
 router.get('/stats', async (req, res) => {
-  const [users, servers, activeServers, logs, active] = await Promise.all([
-    User.countDocuments(), VpnServer.countDocuments(), VpnServer.countDocuments({ status: 'active' }),
+  const [users, activeUsers, servers, activeServers, logs, active] = await Promise.all([
+    User.countDocuments({ role: 'user' }), User.countDocuments({ role: 'user', active: true }),
+    VpnServer.countDocuments(), VpnServer.countDocuments({ status: 'active' }),
     VpnLog.countDocuments(), VpnLog.countDocuments({ status: 'active' })
   ]);
-  res.json({ users, servers, activeServers, logs, activeConnections: active });
+  res.json({ users, activeUsers, servers, activeServers, logs, activeConnections: active });
 });
 
-// ---- Servidores VPN ----
-router.get('/servers', async (req, res) => res.json(await VpnServer.find().sort({ createdAt: -1 })));
+// ---- VPNs ----
+router.get('/servers', async (req, res) => {
+  const servers = await VpnServer.find().select('-config').sort({ createdAt: -1 }).lean();
+  const counts = await User.aggregate([{ $match: { assignedVpn: { $ne: null } } }, { $group: { _id: '$assignedVpn', n: { $sum: 1 } } }]);
+  const byId = Object.fromEntries(counts.map(c => [String(c._id), c.n]));
+  res.json(servers.map(s => ({ ...s, users: byId[String(s._id)] || 0 })));
+});
 
+router.get('/servers/:id/config', async (req, res) => {
+  const s = await VpnServer.findById(req.params.id);
+  if (!s) return res.status(404).json({ error: 'VPN não encontrada' });
+  res.json({ name: s.name, config: s.config });
+});
+
+// Só é preciso colar a configuração; nome e endpoint saem de lá.
 router.post('/servers', async (req, res) => {
   try {
-    const { name, location, country, endpoint, protocol, status } = req.body;
-    if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
-    res.status(201).json(await VpnServer.create({ name, location, country, endpoint, protocol, status }));
+    const config = (req.body.config || '').trim();
+    if (!config.includes('[Interface]') || !config.includes('[Peer]')) {
+      return res.status(400).json({ error: 'Cola a configuração WireGuard completa ([Interface] e [Peer])' });
+    }
+    const endpoint = VpnServer.parseEndpoint(config);
+    const name = (req.body.name || '').trim() || (endpoint ? endpoint.split(':')[0] : `VPN ${await VpnServer.countDocuments() + 1}`);
+    const s = await VpnServer.create({ name, config, endpoint });
+    res.status(201).json({ ...s.toObject(), config: undefined });
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
 router.put('/servers/:id', async (req, res) => {
-  const s = await VpnServer.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-  if (!s) return res.status(404).json({ error: 'Servidor não encontrado' });
+  const upd = {};
+  if (req.body.name) upd.name = req.body.name.trim();
+  if (req.body.status) upd.status = req.body.status;
+  if (req.body.config) { upd.config = req.body.config.trim(); upd.endpoint = VpnServer.parseEndpoint(upd.config); }
+  const s = await VpnServer.findByIdAndUpdate(req.params.id, upd, { new: true, runValidators: true }).select('-config');
+  if (!s) return res.status(404).json({ error: 'VPN não encontrada' });
   res.json(s);
 });
 
 router.delete('/servers/:id', async (req, res) => {
   const s = await VpnServer.findByIdAndDelete(req.params.id);
-  if (!s) return res.status(404).json({ error: 'Servidor não encontrado' });
+  if (!s) return res.status(404).json({ error: 'VPN não encontrada' });
+  await User.updateMany({ assignedVpn: s._id }, { $unset: { assignedVpn: 1 } });
   res.json({ success: true });
 });
 
 // ---- Utilizadores ----
 router.get('/users', async (req, res) =>
-  res.json(await User.find().select('-password').populate('assignedVpn', 'name').sort({ createdAt: -1 })));
+  res.json(await User.find().select('-password').populate('assignedVpn', 'name endpoint status').sort({ createdAt: -1 })));
 
 router.post('/users', async (req, res) => {
   try {
-    const { email, password, name, role, assignedVpn } = req.body;
-    const monthly = Number(req.body['quota.monthlyBandwidth'] ?? req.body.quota?.monthlyBandwidth);
-    if (!email || !password) return res.status(400).json({ error: 'Email e password obrigatórios' });
+    const { username, password, assignedVpn, role } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Utilizador e password obrigatórios' });
+    const monthly = Number(req.body.monthlyBandwidth);
     const u = await User.create({
-      email: email.toLowerCase().trim(), password: await bcrypt.hash(password, 10),
-      name, role: role || 'user', assignedVpn: assignedVpn || undefined,
-      ...(Number.isFinite(monthly) ? { quota: { monthlyBandwidth: monthly } } : {})
+      username, password: await bcrypt.hash(password, 10),
+      role: role === 'admin' ? 'admin' : 'user',
+      assignedVpn: assignedVpn || undefined,
+      ...(Number.isFinite(monthly) && monthly > 0 ? { quota: { monthlyBandwidth: monthly } } : {})
     });
     res.status(201).json({ ...u.toObject(), password: undefined });
   } catch (err) {
-    res.status(400).json({ error: err.code === 11000 ? 'Email já existe' : err.message });
+    res.status(400).json({ error: err.code === 11000 ? 'Esse utilizador já existe' : err.message });
   }
 });
 
 router.put('/users/:id', async (req, res) => {
-  const upd = { ...req.body };
-  if (upd.password) upd.password = await bcrypt.hash(upd.password, 10); else delete upd.password;
-  if (upd.assignedVpn === '') upd.assignedVpn = null;
-  const u = await User.findByIdAndUpdate(req.params.id, upd, { new: true }).select('-password');
+  const upd = {};
+  if (req.body.password) upd.password = await bcrypt.hash(req.body.password, 10);
+  if (typeof req.body.active === 'boolean') upd.active = req.body.active;
+  if ('assignedVpn' in req.body) upd.assignedVpn = req.body.assignedVpn || null;
+  if (req.body.monthlyBandwidth) upd['quota.monthlyBandwidth'] = Number(req.body.monthlyBandwidth);
+  if (req.body.role && req.user._id !== req.params.id) upd.role = req.body.role === 'admin' ? 'admin' : 'user';
+  const u = await User.findByIdAndUpdate(req.params.id, upd, { new: true }).select('-password').populate('assignedVpn', 'name');
   if (!u) return res.status(404).json({ error: 'Utilizador não encontrado' });
   res.json(u);
 });
@@ -83,11 +110,11 @@ router.post('/users/:id/reset-quota', async (req, res) => {
   res.json(u);
 });
 
-// ---- Logs ----
+// ---- Ligações ----
 router.get('/logs', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   res.json(await VpnLog.find().sort({ createdAt: -1 }).limit(limit)
-    .populate('userId', 'email').populate('serverId', 'name'));
+    .populate('userId', 'username').populate('serverId', 'name'));
 });
 
 module.exports = router;

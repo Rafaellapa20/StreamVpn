@@ -22,7 +22,10 @@
   button.ghost{border-color:transparent;padding:4px 8px;color:var(--muted)}
   button.ghost:hover{color:var(--text)}
   input,select{background:#0D1421;border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
-  input::placeholder{color:#55677D}
+  input::placeholder,textarea::placeholder{color:#55677D}
+  textarea{background:#0D1421;border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;min-height:220px;font:12px/1.45 ui-monospace,Consolas,monospace;color:var(--text);resize:vertical}
+  .switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+  .switch input{width:auto}
   h1{font-size:18px;font-weight:600;margin:0}
   h2{font-size:22px;font-weight:600;margin:0 0 4px}
   .muted{color:var(--muted)}
@@ -100,8 +103,8 @@
   <form onsubmit="return doLogin(event)">
     <div class="brand"><span class="logo">S</span><h1>StreamVPN</h1></div>
     <p class="muted" style="margin:0">Entra com uma conta de administrador.</p>
-    <label for="lEmail">Email</label>
-    <input id="lEmail" type="email" autocomplete="username" value="admin@example.com" required>
+    <label for="lEmail">Utilizador</label>
+    <input id="lEmail" autocomplete="username" value="admin" required>
     <label for="lPass">Password</label>
     <input id="lPass" type="password" autocomplete="current-password" required>
     <button class="primary" type="submit">Entrar</button>
@@ -113,7 +116,7 @@
   <nav>
     <div class="brand"><span class="logo">S</span><h1>StreamVPN</h1></div>
     <a class="item" href="#dashboard" data-view="dashboard">Visão geral</a>
-    <a class="item" href="#servers" data-view="servers">Servidores VPN <span id="nServers" class="tag"></span></a>
+    <a class="item" href="#servers" data-view="servers">VPNs <span id="nServers" class="tag"></span></a>
     <a class="item" href="#users" data-view="users">Utilizadores <span id="nUsers" class="tag"></span></a>
     <a class="item" href="#logs" data-view="logs">Ligações</a>
     <div class="spacer"></div>
@@ -157,7 +160,7 @@ const fmtDate = d => d ? new Date(d).toLocaleString('pt-PT', { dateStyle: 'short
 async function doLogin(e) {
   e.preventDefault(); $('#lErr').textContent = '';
   try {
-    const d = await api('/auth/login', { method: 'POST', body: { email: $('#lEmail').value, password: $('#lPass').value } });
+    const d = await api('/auth/login', { method: 'POST', body: { username: $('#lEmail').value, password: $('#lPass').value } });
     if (d.user.role !== 'admin') throw new Error('Esta conta não é de administrador');
     token = d.token; me = d.user;
     localStorage.setItem('svpn_token', token); localStorage.setItem('svpn_me', JSON.stringify(me));
@@ -171,7 +174,7 @@ function logout() {
 }
 function boot() {
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
-  $('#whoEmail').textContent = me.email;
+  $('#whoEmail').textContent = me.username || me.email;
   route();
 }
 
@@ -191,25 +194,25 @@ async function dashboard() {
     const s = await api('/admin/stats');
     $('#nServers').textContent = s.servers; $('#nUsers').textContent = s.users;
     $('#stats').innerHTML = [
-      [s.activeConnections, 'ligações ativas'], [s.users, 'utilizadores'],
-      [`${s.activeServers}/${s.servers}`, 'servidores ativos'], [s.logs, 'registos de ligação']
+      [s.activeConnections, 'ligações ativas'], [`${s.activeUsers}/${s.users}`, 'utilizadores ativos'],
+      [`${s.activeServers}/${s.servers}`, 'VPNs ativas'], [s.logs, 'registos de ligação']
     ].map(([b, l]) => `<div class="stat"><b>${b}</b><span>${l}</span></div>`).join('');
   } catch (e) { toast(e.message, true); }
 }
 
 async function servers() {
-  $('#view').innerHTML = `<div class="head"><div><h2>Servidores VPN</h2><p class="muted" style="margin:0">A app mostra aos utilizadores apenas os servidores ativos.</p></div>
-    <button class="primary" onclick="serverForm()">Adicionar servidor</button></div><div id="tbl"></div>`;
+  $('#view').innerHTML = `<div class="head"><div><h2>VPNs</h2><p class="muted" style="margin:0">Cada VPN é uma configuração WireGuard. Atribui-se a utilizadores na aba Utilizadores.</p></div>
+    <button class="primary" onclick="serverForm()">Adicionar VPN</button></div><div id="tbl"></div>`;
   try {
     cache.servers = await api('/admin/servers'); $('#nServers').textContent = cache.servers.length;
-    if (!cache.servers.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há servidores. Adiciona o primeiro para a lista aparecer na app.</div>`; return; }
-    $('#tbl').innerHTML = `<table><thead><tr><th>Nome</th><th>Localização</th><th>Endpoint</th><th>Protocolo</th><th></th></tr></thead><tbody>` +
+    if (!cache.servers.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há VPNs. Cola a primeira configuração WireGuard para começar.</div>`; return; }
+    $('#tbl').innerHTML = `<table><thead><tr><th>VPN</th><th>Endpoint</th><th>Utilizadores</th><th></th></tr></thead><tbody>` +
       cache.servers.map(s => `<tr>
         <td><span class="dot ${s.status}"></span>${esc(s.name)}</td>
-        <td>${esc([s.location, s.country].filter(Boolean).join(', ') || '—')}</td>
         <td class="muted">${esc(s.endpoint || '—')}</td>
-        <td>${esc(s.protocol)}</td>
+        <td>${s.users}</td>
         <td class="actions">
+          <button class="ghost" onclick="viewConfig('${s._id}')">Ver config</button>
           <button class="ghost" onclick="toggleServer('${s._id}')">${s.status === 'active' ? 'Desativar' : 'Ativar'}</button>
           <button class="ghost" onclick="serverForm('${s._id}')">Editar</button>
           <button class="ghost danger" onclick="delServer('${s._id}')">Apagar</button>
@@ -218,24 +221,32 @@ async function servers() {
 }
 
 async function users() {
-  $('#view').innerHTML = `<div class="head"><div><h2>Utilizadores</h2><p class="muted" style="margin:0">Contas que fazem login na app e no painel.</p></div>
+  $('#view').innerHTML = `<div class="head"><div><h2>Utilizadores</h2><p class="muted" style="margin:0">O mesmo utilizador e password que o cliente usa na app IPTV.</p></div>
     <button class="primary" onclick="userForm()">Adicionar utilizador</button></div><div id="tbl"></div>`;
   try {
     [cache.users, cache.servers] = await Promise.all([api('/admin/users'), api('/admin/servers')]);
-    $('#nUsers').textContent = cache.users.length;
-    $('#tbl').innerHTML = `<table><thead><tr><th>Email</th><th>Nome</th><th>Perfil</th><th>Servidor atribuído</th><th>Tráfego mensal</th><th></th></tr></thead><tbody>` +
-      cache.users.map(u => {
-        const q = u.quota || {}, pct = q.monthlyBandwidth ? Math.min(100, Math.round(100 * (q.usedBandwidth || 0) / q.monthlyBandwidth)) : 0;
-        return `<tr>
-        <td>${esc(u.email)}</td><td>${esc(u.name || '—')}</td>
-        <td><span class="tag ${u.role}">${esc(u.role)}</span></td>
-        <td>${esc(u.assignedVpn?.name || 'Automático')}</td>
+    const list = cache.users.filter(u => u.role !== 'admin');
+    const admins = cache.users.filter(u => u.role === 'admin');
+    $('#nUsers').textContent = list.length;
+    const row = u => {
+      const q = u.quota || {}, pct = q.monthlyBandwidth ? Math.min(100, Math.round(100 * (q.usedBandwidth || 0) / q.monthlyBandwidth)) : 0;
+      return `<tr>
+        <td><span class="dot ${u.active === false ? 'inactive' : 'active'}"></span>${esc(u.username || u.email)}</td>
+        <td>${u.assignedVpn ? esc(u.assignedVpn.name) : '<span class="muted">Automática</span>'}</td>
         <td><span class="bar ${q.status || ''}"><i style="width:${pct}%"></i></span><span class="muted">${q.usedBandwidth || 0}/${q.monthlyBandwidth || 0} GB</span></td>
         <td class="actions">
+          <button class="ghost" onclick="toggleUser('${u._id}')">${u.active === false ? 'Ativar' : 'Desativar'}</button>
           <button class="ghost" onclick="resetQuota('${u._id}')">Repor tráfego</button>
           <button class="ghost" onclick="userForm('${u._id}')">Editar</button>
           <button class="ghost danger" onclick="delUser('${u._id}')">Apagar</button>
-        </td></tr>`; }).join('') + `</tbody></table>`;
+        </td></tr>`; };
+    $('#tbl').innerHTML = (list.length
+      ? `<table><thead><tr><th>Utilizador</th><th>VPN</th><th>Tráfego mensal</th><th></th></tr></thead><tbody>${list.map(row).join('')}</tbody></table>`
+      : `<div class="empty">Ainda não há utilizadores. Adiciona o primeiro com o mesmo login da app IPTV.</div>`) +
+      `<h2 style="margin-top:32px;font-size:16px">Administradores</h2>
+       <table><thead><tr><th>Utilizador</th><th>Email</th><th></th></tr></thead><tbody>` +
+      admins.map(a => `<tr><td>${esc(a.username || a.email)}</td><td class="muted">${esc(a.email || '—')}</td>
+        <td class="actions"><button class="ghost" onclick="userForm('${a._id}')">Mudar password</button></td></tr>`).join('') + `</tbody></table>`;
   } catch (e) { toast(e.message, true); }
 }
 
@@ -245,10 +256,10 @@ async function logs() {
   try {
     const l = await api('/admin/logs?limit=100');
     if (!l.length) { $('#tbl').innerHTML = `<div class="empty">Sem registos ainda. Aparecem aqui quando a app começar a reportar ligações.</div>`; return; }
-    $('#tbl').innerHTML = `<table><thead><tr><th>Quando</th><th>Utilizador</th><th>Servidor</th><th>IP público</th><th>Protocolo</th><th>Estado</th><th>↓ / ↑</th></tr></thead><tbody>` +
+    $('#tbl').innerHTML = `<table><thead><tr><th>Quando</th><th>Utilizador</th><th>VPN</th><th>IP público</th><th>Estado</th><th>↓ / ↑</th></tr></thead><tbody>` +
       l.map(x => `<tr>
-        <td class="muted">${fmtDate(x.createdAt)}</td><td>${esc(x.userId?.email || '—')}</td><td>${esc(x.serverId?.name || '—')}</td>
-        <td>${esc(x.publicIp || '—')}</td><td>${esc(x.protocol)}</td>
+        <td class="muted">${fmtDate(x.createdAt)}</td><td>${esc(x.userId?.username || '—')}</td><td>${esc(x.serverId?.name || '—')}</td>
+        <td>${esc(x.publicIp || '—')}</td>
         <td><span class="dot ${x.status}"></span>${esc(x.status)}</td>
         <td class="muted">${fmtBytes(x.bytesDownloaded)} / ${fmtBytes(x.bytesUploaded)}</td></tr>`).join('') + `</tbody></table>`;
   } catch (e) { toast(e.message, true); }
@@ -256,28 +267,35 @@ async function logs() {
 const fmtBytes = b => !b ? '0' : b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b > 1e6 ? (b / 1e6).toFixed(0) + ' MB' : (b / 1e3).toFixed(0) + ' KB';
 
 // ---------- Drawer / forms ----------
-function openDrawer(html) { $('#drawer').innerHTML = html; $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden', 'false'); $('#scrim').classList.remove('hidden'); $('#drawer input,#drawer select')?.focus(); }
+function openDrawer(html) { $('#drawer').innerHTML = html; $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden', 'false'); $('#scrim').classList.remove('hidden'); $('#drawer input,#drawer textarea,#drawer select')?.focus(); }
 function closeDrawer() { $('#drawer').classList.remove('open'); $('#drawer').setAttribute('aria-hidden', 'true'); $('#scrim').classList.add('hidden'); }
-const field = (id, label, input) => `<label for="${id}">${label}</label>${input.replace('<input', `<input id="${id}"`).replace('<select', `<select id="${id}"`)}`;
 const val = id => $('#' + id).value.trim();
 
+// --- VPNs ---
 function serverForm(id) {
   const s = cache.servers.find(x => x._id === id) || {};
-  openDrawer(`<h2>${id ? 'Editar servidor' : 'Novo servidor VPN'}</h2>
-    ${field('fName', 'Nome', `<input value="${esc(s.name || '')}" placeholder="Lisboa 1" required>`)}
-    ${field('fLocation', 'Cidade', `<input value="${esc(s.location || '')}" placeholder="Lisboa">`)}
-    ${field('fCountry', 'País', `<input value="${esc(s.country || '')}" placeholder="Portugal">`)}
-    ${field('fEndpoint', 'Endpoint (host:porta)', `<input value="${esc(s.endpoint || '')}" placeholder="vpn1.exemplo.pt:51820">`)}
-    ${field('fProtocol', 'Protocolo', `<select><option ${s.protocol !== 'OpenVPN' && s.protocol !== 'IKEv2' ? 'selected' : ''}>WireGuard</option><option ${s.protocol === 'OpenVPN' ? 'selected' : ''}>OpenVPN</option><option ${s.protocol === 'IKEv2' ? 'selected' : ''}>IKEv2</option></select>`)}
-    ${field('fStatus', 'Estado', `<select><option value="active" ${s.status !== 'inactive' ? 'selected' : ''}>Ativo (visível na app)</option><option value="inactive" ${s.status === 'inactive' ? 'selected' : ''}>Inativo</option></select>`)}
-    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveServer('${id || ''}')">${id ? 'Guardar alterações' : 'Adicionar servidor'}</button></div>`);
+  openDrawer(`<h2>${id ? 'Editar VPN' : 'Nova VPN'}</h2>
+    <p class="muted" style="margin:4px 0 0">Cola aqui o ficheiro .conf do WireGuard. O nome e o endpoint são lidos automaticamente.</p>
+    <label for="fConfig">Configuração WireGuard${id ? ' (deixa vazio para manter a atual)' : ''}</label>
+    <textarea id="fConfig" placeholder="[Interface]&#10;PrivateKey = ...&#10;Address = 10.0.0.2/32&#10;DNS = 1.1.1.1&#10;&#10;[Peer]&#10;PublicKey = ...&#10;Endpoint = vpn.exemplo.pt:51820&#10;AllowedIPs = 0.0.0.0/0"></textarea>
+    <label for="fName">Nome (opcional)</label>
+    <input id="fName" value="${esc(s.name || '')}" placeholder="Se vazio, usa o host do endpoint">
+    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveServer('${id || ''}')">${id ? 'Guardar' : 'Adicionar VPN'}</button></div>`);
 }
 async function saveServer(id) {
-  const body = { name: val('fName'), location: val('fLocation'), country: val('fCountry'), endpoint: val('fEndpoint'), protocol: val('fProtocol'), status: val('fStatus') };
-  if (!body.name) return toast('O nome é obrigatório', true);
+  const body = { name: val('fName') };
+  const config = $('#fConfig').value.trim(); if (config) body.config = config;
+  if (!id && !config) return toast('Cola a configuração WireGuard', true);
   try {
     await api(id ? `/admin/servers/${id}` : '/admin/servers', { method: id ? 'PUT' : 'POST', body });
-    closeDrawer(); toast(id ? 'Servidor atualizado' : 'Servidor adicionado'); servers();
+    closeDrawer(); toast(id ? 'VPN atualizada' : 'VPN adicionada'); servers();
+  } catch (e) { toast(e.message, true); }
+}
+async function viewConfig(id) {
+  try {
+    const c = await api(`/admin/servers/${id}/config`);
+    openDrawer(`<h2>${esc(c.name)}</h2><label>Configuração WireGuard</label><textarea readonly>${esc(c.config)}</textarea>
+      <div class="row"><button onclick="navigator.clipboard.writeText(document.querySelector('#drawer textarea').value).then(()=>toast('Copiado'))">Copiar</button><button class="primary" onclick="closeDrawer()">Fechar</button></div>`);
   } catch (e) { toast(e.message, true); }
 }
 async function toggleServer(id) {
@@ -287,37 +305,44 @@ async function toggleServer(id) {
 }
 async function delServer(id) {
   const s = cache.servers.find(x => x._id === id);
-  if (!confirm(`Apagar o servidor "${s.name}"? Os utilizadores atribuídos passam a automático.`)) return;
-  try { await api(`/admin/servers/${id}`, { method: 'DELETE' }); toast('Servidor apagado'); servers(); } catch (e) { toast(e.message, true); }
+  if (!confirm(`Apagar a VPN "${s.name}"? ${s.users ? s.users + ' utilizador(es) passam a VPN automática.' : ''}`)) return;
+  try { await api(`/admin/servers/${id}`, { method: 'DELETE' }); toast('VPN apagada'); servers(); } catch (e) { toast(e.message, true); }
 }
 
+// --- Utilizadores ---
 function userForm(id) {
   const u = cache.users.find(x => x._id === id) || {};
-  const opts = `<option value="">Automático</option>` + cache.servers.map(s => `<option value="${s._id}" ${u.assignedVpn?._id === s._id ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
-  openDrawer(`<h2>${id ? 'Editar utilizador' : 'Novo utilizador'}</h2>
-    ${field('fEmail', 'Email', `<input type="email" value="${esc(u.email || '')}" placeholder="cliente@exemplo.pt" ${id ? 'disabled' : ''}>`)}
-    ${field('fUName', 'Nome', `<input value="${esc(u.name || '')}" placeholder="Nome do cliente">`)}
-    ${field('fPass', id ? 'Nova password (deixa vazio para manter)' : 'Password', `<input type="password" autocomplete="new-password">`)}
-    ${field('fRole', 'Perfil', `<select><option value="user" ${u.role !== 'admin' && u.role !== 'reseller' ? 'selected' : ''}>Utilizador</option><option value="reseller" ${u.role === 'reseller' ? 'selected' : ''}>Revendedor</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option></select>`)}
-    ${field('fVpn', 'Servidor VPN atribuído', `<select>${opts}</select>`)}
-    ${field('fQuota', 'Tráfego mensal (GB)', `<input type="number" min="0" value="${u.quota?.monthlyBandwidth ?? 1000}">`)}
-    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveUser('${id || ''}')">${id ? 'Guardar alterações' : 'Adicionar utilizador'}</button></div>`);
+  const isAdmin = u.role === 'admin';
+  const opts = `<option value="">Automática (primeira VPN ativa)</option>` +
+    cache.servers.map(s => `<option value="${s._id}" ${(u.assignedVpn?._id || u.assignedVpn) === s._id ? 'selected' : ''}>${esc(s.name)}${s.status !== 'active' ? ' (inativa)' : ''}</option>`).join('');
+  openDrawer(`<h2>${id ? (isAdmin ? 'Mudar password' : 'Editar utilizador') : 'Novo utilizador'}</h2>
+    <label for="fUser">Utilizador</label>
+    <input id="fUser" value="${esc(u.username || u.email || '')}" placeholder="o mesmo da app IPTV" autocomplete="off" ${id ? 'disabled' : ''}>
+    <label for="fPass">${id ? 'Nova password (deixa vazio para manter)' : 'Password'}</label>
+    <input id="fPass" type="password" autocomplete="new-password" placeholder="${id ? '' : 'a mesma da app IPTV'}">
+    ${isAdmin ? '' : `<label for="fVpn">VPN</label><select id="fVpn">${opts}</select>`}
+    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveUser('${id || ''}', ${isAdmin})">${id ? 'Guardar' : 'Adicionar utilizador'}</button></div>`);
 }
-async function saveUser(id) {
-  const body = { name: val('fUName'), role: val('fRole'), assignedVpn: val('fVpn'), 'quota.monthlyBandwidth': Number(val('fQuota')) || 0 };
+async function saveUser(id, isAdmin) {
+  const body = {};
   const pass = $('#fPass').value; if (pass) body.password = pass;
-  if (!id) { body.email = val('fEmail'); if (!body.email || !pass) return toast('Email e password são obrigatórios', true); }
+  if (!isAdmin) body.assignedVpn = val('fVpn');
+  if (!id) { body.username = val('fUser'); if (!body.username || !pass) return toast('Utilizador e password são obrigatórios', true); }
   try {
     await api(id ? `/admin/users/${id}` : '/admin/users', { method: id ? 'PUT' : 'POST', body });
-    closeDrawer(); toast(id ? 'Utilizador atualizado' : 'Utilizador adicionado'); users();
+    closeDrawer(); toast(id ? 'Guardado' : 'Utilizador adicionado'); users();
   } catch (e) { toast(e.message, true); }
+}
+async function toggleUser(id) {
+  const u = cache.users.find(x => x._id === id);
+  try { await api(`/admin/users/${id}`, { method: 'PUT', body: { active: u.active === false } }); users(); } catch (e) { toast(e.message, true); }
 }
 async function resetQuota(id) {
   try { await api(`/admin/users/${id}/reset-quota`, { method: 'POST' }); toast('Tráfego reposto a zero'); users(); } catch (e) { toast(e.message, true); }
 }
 async function delUser(id) {
   const u = cache.users.find(x => x._id === id);
-  if (!confirm(`Apagar a conta ${u.email}? Esta ação não pode ser anulada.`)) return;
+  if (!confirm(`Apagar o utilizador ${u.username || u.email}? Deixa de conseguir entrar na VPN.`)) return;
   try { await api(`/admin/users/${id}`, { method: 'DELETE' }); toast('Utilizador apagado'); users(); } catch (e) { toast(e.message, true); }
 }
 
