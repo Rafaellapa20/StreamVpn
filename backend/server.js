@@ -1,9 +1,13 @@
 require('dotenv').config();
 const path = require('path');
+const http = require('http');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
+const { auth } = require('./middleware/auth');
+const { generateTurnCredentials } = require('./utils/turn');
+const signaling = require('./ws/signaling');
 
 const app = express();
 
@@ -35,10 +39,22 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api', require('./routes/vpn-complete'));
 
+// Credenciais TURN temporárias (usadas pela app e pelo painel para o WebRTC
+// do controlo remoto). Qualquer conta autenticada pode pedir as suas.
+app.get('/api/turn-credentials', auth, (req, res) => {
+  try {
+    res.json(generateTurnCredentials(req.user.username || String(req.user._id)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Erro interno do servidor' });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 StreamVPN Backend rodando na porta ${PORT}`));
+const server = http.createServer(app);
+signaling.attach(server);
+server.listen(PORT, () => console.log(`🚀 StreamVPN Backend rodando na porta ${PORT}`));
