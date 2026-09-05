@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StreamVPN — Administração</title>
+<style>
+  :root{
+    --bg:#0A0F1A; --panel:#131B2A; --line:#1E2A3D; --text:#E6EDF5; --muted:#8A9BB0;
+    --accent:#00E5FF; --ok:#00E676; --warn:#FFC107; --bad:#FF5252; --focus:#00E5FF;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  a{color:var(--accent)}
+  button,input,select{font:inherit;color:inherit}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel);padding:7px 14px;border-radius:6px}
+  button:hover{border-color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+  button.primary{background:var(--accent);color:#04121A;border-color:var(--accent);font-weight:600}
+  button.danger{color:var(--bad);border-color:#4A2020}
+  button.ghost{border-color:transparent;padding:4px 8px;color:var(--muted)}
+  button.ghost:hover{color:var(--text)}
+  input,select{background:#0D1421;border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+  input::placeholder{color:#55677D}
+  h1{font-size:18px;font-weight:600;margin:0}
+  h2{font-size:22px;font-weight:600;margin:0 0 4px}
+  .muted{color:var(--muted)}
+  .hidden{display:none!important}
+
+  /* login */
+  #login{min-height:100%;display:grid;place-items:center;padding:24px}
+  #login form{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:32px}
+  #login .brand{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+  #login label{display:block;margin:14px 0 6px;color:var(--muted)}
+  #login button{width:100%;margin-top:22px;padding:10px}
+  .logo{width:28px;height:28px;border-radius:8px;background:var(--accent);
+    display:grid;place-items:center;color:#04121A;font-weight:800}
+
+  /* shell */
+  #app{display:grid;grid-template-columns:220px 1fr;min-height:100%}
+  nav{background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px}
+  nav .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 20px}
+  nav a.item{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:8px;
+    color:var(--muted);text-decoration:none}
+  nav a.item:hover{color:var(--text);background:#182335}
+  nav a.item.active{color:var(--text);background:#182335;box-shadow:inset 3px 0 0 var(--accent)}
+  nav .spacer{flex:1}
+  nav .who{padding:10px 12px;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
+  main{padding:28px 36px;max-width:1200px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
+
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:28px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .stat b{display:block;font-size:26px;font-weight:600;line-height:1.1}
+  .stat span{color:var(--muted);font-size:13px}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{color:var(--muted);font-weight:500;font-size:13px}
+  tr:last-child td{border-bottom:0}
+  tr:hover td{background:#172133}
+  td.actions{text-align:right;white-space:nowrap}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:middle}
+  .dot.active{background:var(--ok);box-shadow:0 0 0 3px rgba(0,230,118,.15)}
+  .dot.inactive{background:#55677D}
+  .dot.error{background:var(--bad)}
+  .tag{font-size:12px;padding:2px 8px;border-radius:999px;background:#1B2638;color:var(--muted)}
+  .tag.admin{color:var(--accent)}
+  .bar{height:6px;background:#1B2638;border-radius:3px;overflow:hidden;width:120px;display:inline-block;vertical-align:middle;margin-right:8px}
+  .bar i{display:block;height:100%;background:var(--ok)}
+  .bar.warning i{background:var(--warn)} .bar.exceeded i{background:var(--bad)}
+  .empty{padding:40px;text-align:center;color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:10px}
+
+  /* drawer */
+  #drawer{position:fixed;inset:0 0 0 auto;width:min(420px,100%);background:var(--panel);border-left:1px solid var(--line);
+    padding:28px;transform:translateX(100%);transition:transform .2s;z-index:20;overflow:auto}
+  #drawer.open{transform:none}
+  #scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
+  #drawer label{display:block;margin:14px 0 6px;color:var(--muted)}
+  #drawer .row{display:flex;gap:10px;justify-content:flex-end;margin-top:26px}
+  @media (prefers-reduced-motion:reduce){#drawer{transition:none}}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#182335;border:1px solid var(--line);
+    padding:10px 16px;border-radius:8px;z-index:30}
+  #toast.bad{border-color:var(--bad)}
+
+  @media (max-width:760px){
+    #app{grid-template-columns:1fr} nav{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}
+    nav .brand,nav .who,nav .spacer{display:none} main{padding:20px 16px}
+  }
+</style>
+</head>
+<body>
+
+<section id="login">
+  <form onsubmit="return doLogin(event)">
+    <div class="brand"><span class="logo">S</span><h1>StreamVPN</h1></div>
+    <p class="muted" style="margin:0">Entra com uma conta de administrador.</p>
+    <label for="lEmail">Email</label>
+    <input id="lEmail" type="email" autocomplete="username" value="admin@example.com" required>
+    <label for="lPass">Password</label>
+    <input id="lPass" type="password" autocomplete="current-password" required>
+    <button class="primary" type="submit">Entrar</button>
+    <p id="lErr" class="muted" style="margin:14px 0 0;color:var(--bad)"></p>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <nav>
+    <div class="brand"><span class="logo">S</span><h1>StreamVPN</h1></div>
+    <a class="item" href="#dashboard" data-view="dashboard">Visão geral</a>
+    <a class="item" href="#servers" data-view="servers">Servidores VPN <span id="nServers" class="tag"></span></a>
+    <a class="item" href="#users" data-view="users">Utilizadores <span id="nUsers" class="tag"></span></a>
+    <a class="item" href="#logs" data-view="logs">Ligações</a>
+    <div class="spacer"></div>
+    <div class="who"><span id="whoEmail"></span><br><button class="ghost" onclick="logout()" style="padding-left:0">Sair</button></div>
+  </nav>
+  <main id="view"></main>
+</section>
+
+<div id="scrim" class="hidden" onclick="closeDrawer()"></div>
+<aside id="drawer" aria-hidden="true"></aside>
+<div id="toast" class="hidden" role="status"></div>
+
+<script>
+const API = location.origin + '/api';
+const $ = s => document.querySelector(s);
+let token = localStorage.getItem('svpn_token');
+let me = JSON.parse(localStorage.getItem('svpn_me') || 'null');
+let cache = { servers: [], users: [] };
+
+// ---------- HTTP ----------
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(opts.headers || {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ('Erro ' + r.status));
+  return data;
+}
+
+function toast(msg, bad) {
+  const t = $('#toast'); t.textContent = msg; t.className = bad ? 'bad' : '';
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 2800);
+}
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDate = d => d ? new Date(d).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+
+// ---------- Auth ----------
+async function doLogin(e) {
+  e.preventDefault(); $('#lErr').textContent = '';
+  try {
+    const d = await api('/auth/login', { method: 'POST', body: { email: $('#lEmail').value, password: $('#lPass').value } });
+    if (d.user.role !== 'admin') throw new Error('Esta conta não é de administrador');
+    token = d.token; me = d.user;
+    localStorage.setItem('svpn_token', token); localStorage.setItem('svpn_me', JSON.stringify(me));
+    boot();
+  } catch (err) { $('#lErr').textContent = err.message; }
+  return false;
+}
+function logout() {
+  token = null; me = null; localStorage.removeItem('svpn_token'); localStorage.removeItem('svpn_me');
+  $('#app').classList.add('hidden'); $('#login').classList.remove('hidden');
+}
+function boot() {
+  $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+  $('#whoEmail').textContent = me.email;
+  route();
+}
+
+// ---------- Router ----------
+const views = { dashboard, servers, users, logs };
+function route() {
+  const v = (location.hash || '#dashboard').slice(1);
+  document.querySelectorAll('nav a.item').forEach(a => a.classList.toggle('active', a.dataset.view === v));
+  (views[v] || dashboard)();
+}
+window.addEventListener('hashchange', () => token && route());
+
+// ---------- Views ----------
+async function dashboard() {
+  $('#view').innerHTML = `<div class="head"><div><h2>Visão geral</h2><p class="muted" style="margin:0">Estado do serviço neste momento.</p></div></div><div class="stats" id="stats"></div>`;
+  try {
+    const s = await api('/admin/stats');
+    $('#nServers').textContent = s.servers; $('#nUsers').textContent = s.users;
+    $('#stats').innerHTML = [
+      [s.activeConnections, 'ligações ativas'], [s.users, 'utilizadores'],
+      [`${s.activeServers}/${s.servers}`, 'servidores ativos'], [s.logs, 'registos de ligação']
+    ].map(([b, l]) => `<div class="stat"><b>${b}</b><span>${l}</span></div>`).join('');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function servers() {
+  $('#view').innerHTML = `<div class="head"><div><h2>Servidores VPN</h2><p class="muted" style="margin:0">A app mostra aos utilizadores apenas os servidores ativos.</p></div>
+    <button class="primary" onclick="serverForm()">Adicionar servidor</button></div><div id="tbl"></div>`;
+  try {
+    cache.servers = await api('/admin/servers'); $('#nServers').textContent = cache.servers.length;
+    if (!cache.servers.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há servidores. Adiciona o primeiro para a lista aparecer na app.</div>`; return; }
+    $('#tbl').innerHTML = `<table><thead><tr><th>Nome</th><th>Localização</th><th>Endpoint</th><th>Protocolo</th><th></th></tr></thead><tbody>` +
+      cache.servers.map(s => `<tr>
+        <td><span class="dot ${s.status}"></span>${esc(s.name)}</td>
+        <td>${esc([s.location, s.country].filter(Boolean).join(', ') || '—')}</td>
+        <td class="muted">${esc(s.endpoint || '—')}</td>
+        <td>${esc(s.protocol)}</td>
+        <td class="actions">
+          <button class="ghost" onclick="toggleServer('${s._id}')">${s.status === 'active' ? 'Desativar' : 'Ativar'}</button>
+          <button class="ghost" onclick="serverForm('${s._id}')">Editar</button>
+          <button class="ghost danger" onclick="delServer('${s._id}')">Apagar</button>
+        </td></tr>`).join('') + `</tbody></table>`;
+  } catch (e) { toast(e.message, true); }
+}
+
+async function users() {
+  $('#view').innerHTML = `<div class="head"><div><h2>Utilizadores</h2><p class="muted" style="margin:0">Contas que fazem login na app e no painel.</p></div>
+    <button class="primary" onclick="userForm()">Adicionar utilizador</button></div><div id="tbl"></div>`;
+  try {
+    [cache.users, cache.servers] = await Promise.all([api('/admin/users'), api('/admin/servers')]);
+    $('#nUsers').textContent = cache.users.length;
+    $('#tbl').innerHTML = `<table><thead><tr><th>Email</th><th>Nome</th><th>Perfil</th><th>Servidor atribuído</th><th>Tráfego mensal</th><th></th></tr></thead><tbody>` +
+      cache.users.map(u => {
+        const q = u.quota || {}, pct = q.monthlyBandwidth ? Math.min(100, Math.round(100 * (q.usedBandwidth || 0) / q.monthlyBandwidth)) : 0;
+        return `<tr>
+        <td>${esc(u.email)}</td><td>${esc(u.name || '—')}</td>
+        <td><span class="tag ${u.role}">${esc(u.role)}</span></td>
+        <td>${esc(u.assignedVpn?.name || 'Automático')}</td>
+        <td><span class="bar ${q.status || ''}"><i style="width:${pct}%"></i></span><span class="muted">${q.usedBandwidth || 0}/${q.monthlyBandwidth || 0} GB</span></td>
+        <td class="actions">
+          <button class="ghost" onclick="resetQuota('${u._id}')">Repor tráfego</button>
+          <button class="ghost" onclick="userForm('${u._id}')">Editar</button>
+          <button class="ghost danger" onclick="delUser('${u._id}')">Apagar</button>
+        </td></tr>`; }).join('') + `</tbody></table>`;
+  } catch (e) { toast(e.message, true); }
+}
+
+async function logs() {
+  $('#view').innerHTML = `<div class="head"><div><h2>Ligações</h2><p class="muted" style="margin:0">Últimos 100 registos enviados pelos dispositivos.</p></div>
+    <button onclick="logs()">Atualizar</button></div><div id="tbl"></div>`;
+  try {
+    const l = await api('/admin/logs?limit=100');
+    if (!l.length) { $('#tbl').innerHTML = `<div class="empty">Sem registos ainda. Aparecem aqui quando a app começar a reportar ligações.</div>`; return; }
+    $('#tbl').innerHTML = `<table><thead><tr><th>Quando</th><th>Utilizador</th><th>Servidor</th><th>IP público</th><th>Protocolo</th><th>Estado</th><th>↓ / ↑</th></tr></thead><tbody>` +
+      l.map(x => `<tr>
+        <td class="muted">${fmtDate(x.createdAt)}</td><td>${esc(x.userId?.email || '—')}</td><td>${esc(x.serverId?.name || '—')}</td>
+        <td>${esc(x.publicIp || '—')}</td><td>${esc(x.protocol)}</td>
+        <td><span class="dot ${x.status}"></span>${esc(x.status)}</td>
+        <td class="muted">${fmtBytes(x.bytesDownloaded)} / ${fmtBytes(x.bytesUploaded)}</td></tr>`).join('') + `</tbody></table>`;
+  } catch (e) { toast(e.message, true); }
+}
+const fmtBytes = b => !b ? '0' : b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b > 1e6 ? (b / 1e6).toFixed(0) + ' MB' : (b / 1e3).toFixed(0) + ' KB';
+
+// ---------- Drawer / forms ----------
+function openDrawer(html) { $('#drawer').innerHTML = html; $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden', 'false'); $('#scrim').classList.remove('hidden'); $('#drawer input,#drawer select')?.focus(); }
+function closeDrawer() { $('#drawer').classList.remove('open'); $('#drawer').setAttribute('aria-hidden', 'true'); $('#scrim').classList.add('hidden'); }
+const field = (id, label, input) => `<label for="${id}">${label}</label>${input.replace('<input', `<input id="${id}"`).replace('<select', `<select id="${id}"`)}`;
+const val = id => $('#' + id).value.trim();
+
+function serverForm(id) {
+  const s = cache.servers.find(x => x._id === id) || {};
+  openDrawer(`<h2>${id ? 'Editar servidor' : 'Novo servidor VPN'}</h2>
+    ${field('fName', 'Nome', `<input value="${esc(s.name || '')}" placeholder="Lisboa 1" required>`)}
+    ${field('fLocation', 'Cidade', `<input value="${esc(s.location || '')}" placeholder="Lisboa">`)}
+    ${field('fCountry', 'País', `<input value="${esc(s.country || '')}" placeholder="Portugal">`)}
+    ${field('fEndpoint', 'Endpoint (host:porta)', `<input value="${esc(s.endpoint || '')}" placeholder="vpn1.exemplo.pt:51820">`)}
+    ${field('fProtocol', 'Protocolo', `<select><option ${s.protocol !== 'OpenVPN' && s.protocol !== 'IKEv2' ? 'selected' : ''}>WireGuard</option><option ${s.protocol === 'OpenVPN' ? 'selected' : ''}>OpenVPN</option><option ${s.protocol === 'IKEv2' ? 'selected' : ''}>IKEv2</option></select>`)}
+    ${field('fStatus', 'Estado', `<select><option value="active" ${s.status !== 'inactive' ? 'selected' : ''}>Ativo (visível na app)</option><option value="inactive" ${s.status === 'inactive' ? 'selected' : ''}>Inativo</option></select>`)}
+    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveServer('${id || ''}')">${id ? 'Guardar alterações' : 'Adicionar servidor'}</button></div>`);
+}
+async function saveServer(id) {
+  const body = { name: val('fName'), location: val('fLocation'), country: val('fCountry'), endpoint: val('fEndpoint'), protocol: val('fProtocol'), status: val('fStatus') };
+  if (!body.name) return toast('O nome é obrigatório', true);
+  try {
+    await api(id ? `/admin/servers/${id}` : '/admin/servers', { method: id ? 'PUT' : 'POST', body });
+    closeDrawer(); toast(id ? 'Servidor atualizado' : 'Servidor adicionado'); servers();
+  } catch (e) { toast(e.message, true); }
+}
+async function toggleServer(id) {
+  const s = cache.servers.find(x => x._id === id);
+  try { await api(`/admin/servers/${id}`, { method: 'PUT', body: { status: s.status === 'active' ? 'inactive' : 'active' } }); servers(); }
+  catch (e) { toast(e.message, true); }
+}
+async function delServer(id) {
+  const s = cache.servers.find(x => x._id === id);
+  if (!confirm(`Apagar o servidor "${s.name}"? Os utilizadores atribuídos passam a automático.`)) return;
+  try { await api(`/admin/servers/${id}`, { method: 'DELETE' }); toast('Servidor apagado'); servers(); } catch (e) { toast(e.message, true); }
+}
+
+function userForm(id) {
+  const u = cache.users.find(x => x._id === id) || {};
+  const opts = `<option value="">Automático</option>` + cache.servers.map(s => `<option value="${s._id}" ${u.assignedVpn?._id === s._id ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
+  openDrawer(`<h2>${id ? 'Editar utilizador' : 'Novo utilizador'}</h2>
+    ${field('fEmail', 'Email', `<input type="email" value="${esc(u.email || '')}" placeholder="cliente@exemplo.pt" ${id ? 'disabled' : ''}>`)}
+    ${field('fUName', 'Nome', `<input value="${esc(u.name || '')}" placeholder="Nome do cliente">`)}
+    ${field('fPass', id ? 'Nova password (deixa vazio para manter)' : 'Password', `<input type="password" autocomplete="new-password">`)}
+    ${field('fRole', 'Perfil', `<select><option value="user" ${u.role !== 'admin' && u.role !== 'reseller' ? 'selected' : ''}>Utilizador</option><option value="reseller" ${u.role === 'reseller' ? 'selected' : ''}>Revendedor</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option></select>`)}
+    ${field('fVpn', 'Servidor VPN atribuído', `<select>${opts}</select>`)}
+    ${field('fQuota', 'Tráfego mensal (GB)', `<input type="number" min="0" value="${u.quota?.monthlyBandwidth ?? 1000}">`)}
+    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveUser('${id || ''}')">${id ? 'Guardar alterações' : 'Adicionar utilizador'}</button></div>`);
+}
+async function saveUser(id) {
+  const body = { name: val('fUName'), role: val('fRole'), assignedVpn: val('fVpn'), 'quota.monthlyBandwidth': Number(val('fQuota')) || 0 };
+  const pass = $('#fPass').value; if (pass) body.password = pass;
+  if (!id) { body.email = val('fEmail'); if (!body.email || !pass) return toast('Email e password são obrigatórios', true); }
+  try {
+    await api(id ? `/admin/users/${id}` : '/admin/users', { method: id ? 'PUT' : 'POST', body });
+    closeDrawer(); toast(id ? 'Utilizador atualizado' : 'Utilizador adicionado'); users();
+  } catch (e) { toast(e.message, true); }
+}
+async function resetQuota(id) {
+  try { await api(`/admin/users/${id}/reset-quota`, { method: 'POST' }); toast('Tráfego reposto a zero'); users(); } catch (e) { toast(e.message, true); }
+}
+async function delUser(id) {
+  const u = cache.users.find(x => x._id === id);
+  if (!confirm(`Apagar a conta ${u.email}? Esta ação não pode ser anulada.`)) return;
+  try { await api(`/admin/users/${id}`, { method: 'DELETE' }); toast('Utilizador apagado'); users(); } catch (e) { toast(e.message, true); }
+}
+
+// ---------- Init ----------
+if (token && me?.role === 'admin') boot();
+</script>
+</body>
+</html>
