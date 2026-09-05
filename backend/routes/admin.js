@@ -12,6 +12,9 @@ router.use(adminAuth);
 // Packs disponíveis: meses → créditos
 const PACKS = { 1: 1, 3: 3, 6: 6, 12: 12 };
 const addMonths = (d, m) => { const x = new Date(d); x.setMonth(x.getMonth() + m); return x; };
+// Código legível, sem letras ambíguas (0/O, 1/I): SVPN-7K3M-9QX2
+const genCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const r = n => Array.from({ length: n }, () => A[Math.floor(Math.random() * A.length)]).join(''); return `SVPN-${r(4)}-${r(4)}`; };
+async function uniqueCode() { for (let i = 0; i < 10; i++) { const c = genCode(); if (!await User.exists({ activationCode: c })) return c; } throw new Error('Não foi possível gerar código'); }
 const isAdmin = (u) => u.role === 'admin';
 
 // ---- Visão geral ----
@@ -27,7 +30,7 @@ router.get('/stats', async (req, res) => {
     User.findById(req.user._id).select('credits role')
   ]);
   res.json({ users, activeUsers, expired, servers, wireguards: wgs[0]?.n || 0, activeConnections: active,
-    credits: me && isAdmin(me) ? null : me?.credits, packs: PACKS });
+    credits: isAdmin(me) ? null : me.credits, packs: PACKS });
 });
 
 // ---- DNS ----
@@ -51,10 +54,32 @@ router.delete('/dns/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// ---- Agente WireGuard ----
+const agentOf = (s) => ({ url: (s.agentUrl || process.env.WG_AGENT_URL || '').replace(/\/$/, ''), token: s.agentToken || process.env.WG_AGENT_TOKEN || '' });
+async function agentCall(s, method, path, body) {
+  const { url, token } = agentOf(s);
+  if (!url || !token) throw new Error('Este servidor não tem agente WireGuard configurado');
+  const r = await fetch(url + path, { method, headers: { 'Content-Type': 'application/json', 'X-Token': token }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(8000) })
+    .catch(e => { throw new Error('Agente WireGuard inacessível: ' + e.message); });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `Agente respondeu ${r.status}`);
+  return data;
+}
+async function generateWireguards(s, count) {
+  const slug = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'vpn';
+  for (let i = 0; i < count; i++) {
+    const n = s.wireguards.length + 1;
+    const peer = await agentCall(s, 'POST', '/peer', { name: `${slug}-wg${n}` });
+    s.wireguards.push({ name: `WG ${n}`, config: peer.conf, endpoint: VpnServer.parseEndpoint(peer.conf), publicKey: peer.publicKey });
+  }
+  await s.save();
+}
+
 // ---- Servidores VPN (grupos de WireGuards) ----
 const serverView = (s, usersById = {}) => ({
   _id: s._id, name: s.name, status: s.status, createdAt: s.createdAt,
   users: usersById[String(s._id)] || 0,
+  hasAgent: !!agentOf(s).url,
   wireguards: s.wireguards.map(w => ({ _id: w._id, name: w.name, endpoint: w.endpoint, active: w.active, assigned: w.assigned }))
 });
 
@@ -67,12 +92,26 @@ router.get('/servers', async (req, res) => {
   res.json(servers.map(s => serverView(s, byId)));
 });
 
+// Criar servidor: só o nome. Gera logo N WireGuards pelo agente (default 5).
 router.post('/servers', async (req, res) => {
   try {
     const name = (req.body.name || '').trim();
     if (!name) return res.status(400).json({ error: 'Nome do servidor obrigatório' });
-    const s = await VpnServer.create({ name });
-    res.status(201).json(serverView(s));
+    const s = await VpnServer.create({ name, agentUrl: req.body.agentUrl || undefined, agentToken: req.body.agentToken || undefined });
+    const count = Math.min(Math.max(parseInt(req.body.count ?? 5), 0), 50);
+    let warning;
+    if (count > 0) { try { await generateWireguards(s, count); } catch (e) { warning = e.message; } }
+    res.status(201).json({ ...serverView(s), warning });
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+// Gerar mais WireGuards num servidor existente
+router.post('/servers/:id/generate', async (req, res) => {
+  try {
+    const s = await VpnServer.findById(req.params.id);
+    if (!s) return res.status(404).json({ error: 'Servidor não encontrado' });
+    await generateWireguards(s, Math.min(Math.max(parseInt(req.body.count ?? 5), 1), 50));
+    res.json(serverView(s));
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
@@ -80,6 +119,8 @@ router.put('/servers/:id', async (req, res) => {
   const upd = {};
   if (req.body.name) upd.name = req.body.name.trim();
   if (req.body.status) upd.status = req.body.status;
+  if ('agentUrl' in req.body) upd.agentUrl = req.body.agentUrl || null;
+  if (req.body.agentToken) upd.agentToken = req.body.agentToken;
   const s = await VpnServer.findByIdAndUpdate(req.params.id, upd, { new: true });
   if (!s) return res.status(404).json({ error: 'Servidor não encontrado' });
   res.json(serverView(s));
@@ -128,6 +169,7 @@ router.delete('/servers/:id/wireguards/:wgId', async (req, res) => {
   const s = await VpnServer.findById(req.params.id);
   const wg = s?.wireguards.id(req.params.wgId);
   if (!wg) return res.status(404).json({ error: 'WireGuard não encontrado' });
+  if (wg.publicKey) { try { await agentCall(s, 'DELETE', '/peer/' + encodeURIComponent(wg.publicKey)); } catch (e) { /* peer fica no servidor; não bloqueia */ } }
   wg.deleteOne();
   await s.save();
   res.json(serverView(s));
@@ -165,6 +207,7 @@ router.post('/users', async (req, res) => {
       username, password: await bcrypt.hash(password, 10), role: 'user',
       mac: mac || undefined, notes, requireClientApp: !!requireClientApp,
       dns: Array.isArray(dns) ? dns : [], vpnServers,
+      activationCode: await uniqueCode(),
       packMonths: months, expiresAt: addMonths(new Date(), months), createdBy: creator._id
     });
     if (!isAdmin(creator)) await User.updateOne({ _id: creator._id }, { $inc: { credits: -cost } });
@@ -212,6 +255,13 @@ router.delete('/users/:id', async (req, res) => {
   const u = await User.findByIdAndDelete(req.params.id);
   if (!u) return res.status(404).json({ error: 'Utilizador não encontrado' });
   res.json({ success: true });
+});
+
+// Novo código de ativação (o antigo deixa de funcionar; aparelhos já ativados continuam ligados até saírem)
+router.post('/users/:id/new-code', async (req, res) => {
+  const u = await User.findByIdAndUpdate(req.params.id, { activationCode: await uniqueCode() }, { new: true }).select(userSelect);
+  if (!u) return res.status(404).json({ error: 'Utilizador não encontrado' });
+  res.json(u);
 });
 
 router.post('/users/:id/reset-quota', async (req, res) => {

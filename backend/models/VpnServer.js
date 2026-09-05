@@ -7,12 +7,16 @@ const wireguardSchema = new mongoose.Schema({
   config: { type: String, required: true },   // texto completo do .conf
   endpoint: String,                            // host:porta lido do [Peer]
   active: { type: Boolean, default: true },
+  publicKey: String,                           // para remover o peer no agente
   assigned: { type: Number, default: 0 }       // quantas vezes foi entregue (para rotação)
 });
 
 const vpnServerSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   wireguards: [wireguardSchema],
+  // Ligação ao agente que cria peers na máquina WireGuard (wg-agent). Se vazio, usa os defaults do .env.
+  agentUrl: String,
+  agentToken: String,
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   createdAt: { type: Date, default: Date.now }
 });

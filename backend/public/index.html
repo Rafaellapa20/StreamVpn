@@ -269,16 +269,17 @@ async function users() {
   try {
     [cache.users, cache.servers, cache.dns] = await Promise.all([api('/admin/users'), api('/admin/servers'), api('/admin/dns'), loadStats()]);
     if (!cache.users.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há utilizadores. Cria o primeiro com o mesmo login da app IPTV.</div>`; return; }
-    $('#tbl').innerHTML = `<table><thead><tr><th>Utilizador</th><th>Servidor VPN</th><th>DNS</th><th>Validade</th><th>App</th><th></th></tr></thead><tbody>` +
+    $('#tbl').innerHTML = `<table><thead><tr><th>Utilizador</th><th>Código de ativação</th><th>Servidor VPN</th><th>DNS</th><th>Validade</th><th></th></tr></thead><tbody>` +
       cache.users.map(u => `<tr>
-        <td><span class="dot ${u.active === false || u.expired ? 'inactive' : 'active'}"></span>${esc(u.username)}</td>
+        <td><span class="dot ${u.active === false || u.expired ? 'inactive' : 'active'}"></span>${esc(u.username)}${u.requireClientApp ? '<div class="note">App obrigatória</div>' : ''}</td>
+        <td>${u.activationCode ? `<code style="font-size:13px;letter-spacing:.05em">${esc(u.activationCode)}</code> <button class="ghost" title="Copiar" onclick="navigator.clipboard.writeText('${esc(u.activationCode)}').then(()=>toast('Código copiado'))">⧉</button>` : '<span class="muted">—</span>'}</td>
         <td>${u.vpnServers?.[0] ? esc(u.vpnServers[0].name) : '<span class="muted">—</span>'}</td>
         <td class="muted">${(u.dns || []).map(esc).join('<br>') || '—'}</td>
         <td>${expiryHtml(u.expiresAt)}</td>
-        <td class="muted">${u.requireClientApp ? 'obrigatória' : '—'}</td>
         <td class="actions">
           <button class="ghost" onclick="location.hash='#devices/${encodeURIComponent(u.username)}'">Dispositivos</button>
           <button class="ghost" onclick="renewForm('${u._id}')">Renovar</button>
+          <button class="ghost" onclick="newCode('${u._id}')">Novo código</button>
           <button class="ghost" onclick="toggleUser('${u._id}')">${u.active === false ? 'Ativar' : 'Desativar'}</button>
           <button class="ghost" onclick="userForm('${u._id}')">Editar</button>
           <button class="ghost danger" onclick="delUser('${u._id}')">Apagar</button>
@@ -351,8 +352,12 @@ async function saveUser(id) {
   }
   if (!body.vpnServers.length) return toast('Seleciona o servidor VPN', true);
   try {
-    await api(id ? `/admin/users/${id}` : '/admin/users', { method: id ? 'PUT' : 'POST', body });
-    closeDrawer(); toast(id ? 'Guardado' : 'Utilizador criado'); users();
+    const r = await api(id ? `/admin/users/${id}` : '/admin/users', { method: id ? 'PUT' : 'POST', body });
+    if (id) { closeDrawer(); toast('Guardado'); users(); return; }
+    users();
+    openDrawer(`<h2>Utilizador criado</h2><p class="muted" style="margin:4px 0 0">Dá este código ao cliente. Ele mete-o uma vez na app e fica ativado.</p>
+      <div class="box" style="text-align:center;font-size:26px;letter-spacing:.12em;font-family:ui-monospace,Consolas,monospace;padding:22px">${esc(r.activationCode || '')}</div>
+      <div class="row"><button onclick="navigator.clipboard.writeText('${esc(r.activationCode || '')}').then(()=>toast('Código copiado'))">Copiar</button><button class="primary" onclick="closeDrawer()">Fechar</button></div>`);
   } catch (e) { toast(e.message, true); }
 }
 function renewForm(id) {
@@ -367,6 +372,11 @@ async function renew(id) {
   try { await api(`/admin/users/${id}/renew`, { method: 'POST', body: { packMonths: Number(val('fPack')) } }); closeDrawer(); toast('Renovado'); users(); }
   catch (e) { toast(e.message, true); }
 }
+async function newCode(id) {
+  const u = cache.users.find(x => x._id === id);
+  if (!confirm(`Gerar um novo código para ${u.username}? O código atual deixa de funcionar.`)) return;
+  try { const r = await api(`/admin/users/${id}/new-code`, { method: 'POST' }); toast(`Novo código: ${r.activationCode}`); users(); } catch (e) { toast(e.message, true); }
+}
 async function toggleUser(id) {
   const u = cache.users.find(x => x._id === id);
   try { await api(`/admin/users/${id}`, { method: 'PUT', body: { active: u.active === false } }); users(); } catch (e) { toast(e.message, true); }
@@ -379,16 +389,17 @@ async function delUser(id) {
 
 // ---------- Servidores VPN ----------
 async function servers() {
-  $('#view').innerHTML = `<div class="head"><div><h2>Servidores VPN</h2><p class="muted" style="margin:0">Cada servidor agrupa vários WireGuards; os utilizadores rodam entre os ativos.</p></div>
+  $('#view').innerHTML = `<div class="head"><div><h2>Servidores VPN</h2><p class="muted" style="margin:0">Cada servidor tem vários WireGuards gerados automaticamente; cada cliente fica com um.</p></div>
     <button class="primary" onclick="serverForm()">Adicionar servidor</button></div><div id="tbl"></div>`;
   try {
     cache.servers = await api('/admin/servers'); $('#nServers').textContent = cache.servers.filter(s => s.status === 'active').length;
-    if (!cache.servers.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há servidores. Cria um e cola-lhe as configurações WireGuard.</div>`; return; }
+    if (!cache.servers.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há servidores VPN. Clica em "Adicionar servidor", dá-lhe um nome e pronto — os WireGuards são gerados automaticamente.</div>`; return; }
     $('#tbl').innerHTML = cache.servers.map(s => `
       <table style="margin-bottom:14px"><tbody>
         <tr><td style="width:40%"><span class="dot ${s.status}"></span><b>${esc(s.name)}</b><div class="note">${s.wireguards.filter(w => w.active).length}/${s.wireguards.length} WireGuards ativos · ${s.users} utilizador${s.users === 1 ? '' : 'es'}</div></td>
           <td class="actions">
-            <button class="ghost" onclick="wgForm('${s._id}')">Adicionar WireGuard</button>
+            <button class="ghost" onclick="generateWg('${s._id}')">+ Gerar WireGuards</button>
+            <button class="ghost" onclick="wgForm('${s._id}')" title="Colar uma configuração à mão">Colar .conf</button>
             <button class="ghost" onclick="toggleServer('${s._id}')">${s.status === 'active' ? 'Desativar' : 'Ativar'}</button>
             <button class="ghost" onclick="serverForm('${s._id}')">Renomear</button>
             <button class="ghost danger" onclick="delServer('${s._id}')">Apagar</button>
@@ -406,15 +417,33 @@ async function servers() {
 }
 function serverForm(id) {
   const s = cache.servers.find(x => x._id === id) || {};
-  openDrawer(`<h2>${id ? 'Renomear servidor' : 'Novo servidor VPN'}</h2>
-    <label for="fName">Nome</label><input id="fName" value="${esc(s.name || '')}" placeholder="Ex.: Portugal 1, Alemanha, Hetzner-01">
-    ${id ? '' : '<p class="note">Depois de criar, adiciona-lhe uma ou mais configurações WireGuard.</p>'}
+  openDrawer(`<h2>${id ? 'Editar servidor' : 'Novo servidor VPN'}</h2>
+    <label for="fName">Nome</label><input id="fName" value="${esc(s.name || '')}" placeholder="Ex.: Portugal 1">
+    ${id ? '' : `<label for="fCount">WireGuards a gerar</label><input id="fCount" type="number" min="0" max="50" value="5">
+    <div class="note">Gerados automaticamente no servidor WireGuard. Cada cliente usa um; podes gerar mais depois.</div>`}
+    <details style="margin-top:16px"><summary class="muted" style="cursor:pointer">Avançado — outro servidor WireGuard</summary>
+      <label for="fAgentUrl">URL do agente</label><input id="fAgentUrl" value="${esc(s.agentUrl || '')}" placeholder="vazio = servidor principal">
+      <label for="fAgentToken">Token do agente</label><input id="fAgentToken" type="password" placeholder="${id ? 'vazio = manter' : 'vazio = servidor principal'}">
+      <div class="note">Só para VPNs noutra máquina (ex.: um VPS na Alemanha com o wg-agent instalado).</div>
+    </details>
     <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveServer('${id || ''}')">${id ? 'Guardar' : 'Criar servidor'}</button></div>`);
 }
 async function saveServer(id) {
   const name = val('fName'); if (!name) return toast('O nome é obrigatório', true);
-  try { await api(id ? `/admin/servers/${id}` : '/admin/servers', { method: id ? 'PUT' : 'POST', body: { name } }); closeDrawer(); toast(id ? 'Guardado' : 'Servidor criado'); servers(); }
-  catch (e) { toast(e.message, true); }
+  const body = { name, agentUrl: val('fAgentUrl') };
+  const tok = $('#fAgentToken').value; if (tok) body.agentToken = tok;
+  if (!id) body.count = Number(val('fCount'));
+  try {
+    const r = await api(id ? `/admin/servers/${id}` : '/admin/servers', { method: id ? 'PUT' : 'POST', body });
+    closeDrawer(); servers();
+    if (r.warning) toast('Servidor criado, mas sem WireGuards: ' + r.warning, true);
+    else toast(id ? 'Guardado' : `Servidor criado com ${r.wireguards?.length || 0} WireGuards`);
+  } catch (e) { toast(e.message, true); }
+}
+async function generateWg(sid) {
+  const n = prompt('Quantos WireGuards gerar?', '5'); if (!n) return;
+  toast('A gerar…');
+  try { await api(`/admin/servers/${sid}/generate`, { method: 'POST', body: { count: Number(n) } }); toast('WireGuards gerados'); servers(); } catch (e) { toast(e.message, true); }
 }
 async function toggleServer(id) {
   const s = cache.servers.find(x => x._id === id);

@@ -10,6 +10,9 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['user', 'admin', 'reseller'], default: 'user' },
   active: { type: Boolean, default: true },
 
+  // Código de ativação: o cliente mete-o uma vez na app e fica ligado a esta conta
+  activationCode: { type: String, unique: true, sparse: true, uppercase: true, trim: true },
+
   // --- Dados do cliente ---
   mac: { type: String, trim: true, uppercase: true },
   notes: String,

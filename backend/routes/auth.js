@@ -1,19 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const User = require('../models/User');
 const { auth, sign } = require('../middleware/auth');
-
-// Máx. 10 tentativas de login por IP a cada 15 min — mitiga força-bruta.
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Demasiadas tentativas de login. Tenta novamente mais tarde.' }
-});
 
 // Cria só a conta de admin se a BD estiver vazia. A password vem de
 // ADMIN_PASSWORD ou é gerada e impressa UMA VEZ no log. Também migra contas
@@ -33,7 +23,7 @@ async function seedDefaults() {
 }
 
 // Login com username (o mesmo da app IPTV) — aceita também email por compatibilidade.
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { username, email, password } = req.body || {};
     const id = (username || email || '').toLowerCase().trim();
@@ -48,6 +38,23 @@ router.post('/login', loginLimiter, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao fazer login' });
+  }
+});
+
+// Ativação pela app: o cliente mete o código uma vez; devolvemos um token de longa duração
+// que a app guarda. Não precisa de username/password.
+router.post('/activate', async (req, res) => {
+  try {
+    const code = (req.body?.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length < 8) return res.status(400).json({ error: 'Código inválido' });
+    const formatted = `SVPN-${code.replace(/^SVPN/, '').slice(0, 4)}-${code.replace(/^SVPN/, '').slice(4, 8)}`;
+    const user = await User.findOne({ activationCode: formatted, role: 'user' });
+    if (!user) return res.status(404).json({ error: 'Código não encontrado' });
+    if (user.active === false) return res.status(403).json({ error: 'Conta desativada' });
+    if (user.expiresAt && user.expiresAt < new Date()) return res.status(403).json({ error: 'Conta expirada', expiresAt: user.expiresAt });
+    res.json({ success: true, token: sign(user, '365d'), user: { username: user.username, expiresAt: user.expiresAt, requireClientApp: user.requireClientApp } });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro na ativação' });
   }
 });
 

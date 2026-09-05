@@ -29,9 +29,9 @@ const adminAuth = (req, res, next) => auth(req, res, () => {
   next();
 });
 
-const sign = (user) => jwt.sign(
-  { _id: user._id.toString(), email: user.email, role: user.role, name: user.name },
-  SECRET, { expiresIn: '30d' }
+const sign = (user, expiresIn = '30d') => jwt.sign(
+  { _id: user._id.toString(), username: user.username, email: user.email, role: user.role, name: user.name },
+  SECRET, { expiresIn }
 );
 
 module.exports = auth;
