@@ -1,5 +1,15 @@
 const jwt = require('jsonwebtoken');
-const SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+
+// Sem fallback: um segredo previsível permitiria forjar tokens de admin.
+// Falha alto e cedo em vez de arrancar silenciosamente com um segredo fraco.
+const SECRET = process.env.JWT_SECRET;
+if (!SECRET || SECRET.length < 32) {
+  throw new Error(
+    'JWT_SECRET em falta ou demasiado curto (mínimo 32 caracteres). ' +
+    'Define uma variável de ambiente JWT_SECRET forte antes de arrancar o servidor. ' +
+    'Ex.: gera uma com `node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"`'
+  );
+}
 
 // Autenticação: verifica o JWT e coloca { _id, email, role } em req.user
 const auth = (req, res, next) => {
