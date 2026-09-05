@@ -59,37 +59,43 @@ router.post('/vpn/reconnect', auth, async (req, res) => {
   }
 });
 
-// 5. Available Servers — se o admin atribuiu uma VPN ao utilizador, só essa aparece
+// 5. Available Servers — os servidores atribuídos, pela ordem definida no painel
 router.get('/vpn/available-servers', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('assignedVpn');
-    const filter = { status: 'active', ...(user?.assignedVpn ? { _id: user.assignedVpn } : {}) };
-    const servers = await VpnServer.find(filter).select('-config');
-    res.json(servers.map(s => ({
-      id: s._id,
-      name: s.name,
-      location: s.location,
-      country: s.country,
-      endpoint: s.endpoint,
-      assigned: !!user?.assignedVpn,
-      ping: Math.floor(Math.random() * 50) + 10
-    })));
+    const user = await User.findById(req.user._id).select('vpnServers').populate('vpnServers');
+    const list = (user?.vpnServers || []).filter(s => s && s.status === 'active');
+    res.json(list.map((s, i) => ({ id: s._id, name: s.name, order: i + 1, wireguards: s.wireguards.filter(w => w.active).length, ping: Math.floor(Math.random() * 50) + 10 })));
   } catch (err) {
     res.status(500).json({ error: 'Erro ao obter servidores' });
   }
 });
 
-// 5b. Config — a configuração WireGuard que a app deve usar (VPN atribuída, ou a primeira ativa)
+// 5b. Config — WireGuard do servidor principal (rotação entre os ativos) + reservas pela ordem + DNS IPTV + validade.
+// A app usa `config`; se a ligação falhar, passa ao próximo em `fallbacks`.
 router.get('/vpn/config', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('assignedVpn active');
+    const user = await User.findById(req.user._id).select('active expiresAt vpnServers dns requireClientApp').populate('vpnServers');
     if (!user) return res.status(404).json({ error: 'Utilizador não encontrado' });
     if (user.active === false) return res.status(403).json({ error: 'Conta desativada' });
-    const server = user.assignedVpn
-      ? await VpnServer.findOne({ _id: user.assignedVpn, status: 'active' })
-      : await VpnServer.findOne({ status: 'active' }).sort({ createdAt: 1 });
-    if (!server) return res.status(404).json({ error: 'Nenhuma VPN disponível para esta conta' });
-    res.json({ id: server._id, name: server.name, endpoint: server.endpoint, protocol: server.protocol, config: server.config });
+    if (user.expiresAt && user.expiresAt < new Date()) return res.status(403).json({ error: 'Conta expirada', expiresAt: user.expiresAt });
+
+    const servers = (user.vpnServers || []).filter(s => s && s.status === 'active' && s.wireguards.some(w => w.active));
+    if (!servers.length) return res.status(404).json({ error: 'Nenhum servidor VPN disponível para esta conta' });
+
+    const entries = [];
+    for (const s of servers) {
+      const wg = await s.nextWireguard();
+      if (wg) entries.push({ server: { id: s._id, name: s.name }, wireguard: { id: wg._id, name: wg.name, endpoint: wg.endpoint }, config: wg.config });
+    }
+    const [primary, ...fallbacks] = entries;
+    res.json({
+      ...primary,
+      protocol: 'WireGuard',
+      fallbacks,
+      dns: user.dns || [],
+      requireClientApp: !!user.requireClientApp,
+      expiresAt: user.expiresAt
+    });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao obter configuração' });
   }

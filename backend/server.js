@@ -7,7 +7,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { auth } = require('./middleware/auth');
 const { generateTurnCredentials } = require('./utils/turn');
-const signaling = require('./ws/signaling');
+const wsHub = require('./ws-hub');
 
 const app = express();
 
@@ -37,6 +37,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'online', version: '1.1.
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/admin/devices', require('./routes/devices'));
 app.use('/api', require('./routes/vpn-complete'));
 
 // Credenciais TURN temporárias (usadas pela app e pelo painel para o WebRTC
@@ -56,5 +57,5 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
-signaling.attach(server);
+wsHub.attach(server);
 server.listen(PORT, () => console.log(`🚀 StreamVPN Backend rodando na porta ${PORT}`));

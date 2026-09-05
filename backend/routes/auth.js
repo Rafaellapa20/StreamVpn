@@ -44,7 +44,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     if (user.active === false) return res.status(403).json({ error: 'Conta desativada' });
     res.json({
       success: true, token: sign(user),
-      user: { username: user.username, email: user.email, name: user.name, role: user.role, assignedVpn: user.assignedVpn }
+      user: { username: user.username, email: user.email, name: user.name, role: user.role, expiresAt: user.expiresAt, credits: user.role === 'admin' ? null : user.credits }
     });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao fazer login' });
@@ -52,7 +52,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 router.get('/me', auth, async (req, res) => {
-  const u = await User.findById(req.user._id).select('-password').populate('assignedVpn', 'name endpoint');
+  const u = await User.findById(req.user._id).select('-password').populate('vpnServers', 'name');
   if (!u) return res.status(404).json({ error: 'Utilizador não encontrado' });
   res.json(u);
 });

@@ -95,6 +95,45 @@
     #app{grid-template-columns:1fr} nav{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}
     nav .brand,nav .who,nav .spacer{display:none} main{padding:20px 16px}
   }
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{background:#1B2638;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;display:inline-flex;gap:8px;align-items:center}
+  .chip b{cursor:pointer;color:var(--muted)} .chip b:hover{color:var(--bad)}
+  .note{font-size:12px;color:var(--muted);margin-top:4px}
+  .box{background:#0D1421;border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:14px}
+  .box.info{border-color:#1F4B5A;background:#0E1E26;color:#9BE3F2}
+  .sub{margin:6px 0 0 22px;padding:8px 0 8px 12px;border-left:2px solid var(--line)}
+  .sub .wg{display:flex;align-items:center;gap:10px;padding:5px 0}
+  .sub .wg .ep{flex:1;color:var(--muted);font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .exp{font-size:12px} .exp.soon{color:var(--warn)} .exp.over{color:var(--bad)}
+  @media (max-width:760px){.grid2{grid-template-columns:1fr}}
+  /* --- dispositivos / controlo remoto --- */
+  .devhead{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:14px;flex-wrap:wrap}
+  .devhead .sp{flex:1}
+  .screen{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px}
+  .screen .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .screen .bar .lights i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+  .screen .view{position:relative;background:#000;aspect-ratio:16/9;display:grid;place-items:center}
+  .screen .view img{width:100%;height:100%;object-fit:contain}
+  .screen .view .placeholder{color:var(--muted)}
+  .screen .live{position:absolute;top:12px;right:12px;background:var(--bad);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px}
+  .screen .foot{display:flex;justify-content:space-between;padding:8px 14px;font-size:12px;color:var(--muted)}
+  button.rec{background:#3a1216;border-color:#5a1a20;color:#fff} button.rec.on{background:var(--bad);border-color:var(--bad)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  .card h3{margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .quick{display:flex;gap:8px;flex-wrap:wrap}
+  .quick button{border-width:1px}
+  .quick .b-red{color:#FF7B7B;border-color:#5a2a2a} .quick .b-yel{color:#FFD166;border-color:#5a4a1a} .quick .b-cyan{color:var(--accent);border-color:#1F4B5A} .quick .b-green{color:var(--ok);border-color:#1e4a2e}
+  .cmdlog{font:12px/1.6 ui-monospace,Consolas,monospace;color:var(--muted);max-height:180px;overflow:auto}
+  .cmdlog span{color:#55677D;margin-right:8px}
+  .remote{width:220px;margin:8px auto 0;background:linear-gradient(180deg,#152136,#0F1829);border:1px solid var(--line);border-radius:28px;padding:24px 18px 20px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+  .remote .brand{font-size:9px;letter-spacing:.3em;color:var(--muted);margin-bottom:18px}
+  .remote .pad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);gap:6px;justify-content:center}
+  .remote .pad button{border-radius:14px;font-size:18px;padding:0}
+  .remote .pad .ok{background:#1F4B5A;border-color:var(--accent);color:#fff;font-weight:600;font-size:13px}
+  .remote .back{margin-top:14px;width:100%;border-radius:12px}
+  .remote button:active{transform:translateY(1px)}
+  .devrow td .sub2{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -102,9 +141,9 @@
 <section id="login">
   <form onsubmit="return doLogin(event)">
     <div class="brand"><span class="logo">S</span><h1>StreamVPN</h1></div>
-    <p class="muted" style="margin:0">Entra com uma conta de administrador.</p>
-    <label for="lEmail">Utilizador</label>
-    <input id="lEmail" autocomplete="username" value="admin" required>
+    <p class="muted" style="margin:0">Entra com a tua conta de administrador ou revendedor.</p>
+    <label for="lUser">Utilizador</label>
+    <input id="lUser" autocomplete="username" value="admin" required>
     <label for="lPass">Password</label>
     <input id="lPass" type="password" autocomplete="current-password" required>
     <button class="primary" type="submit">Entrar</button>
@@ -116,12 +155,13 @@
   <nav>
     <div class="brand"><span class="logo">S</span><h1>StreamVPN</h1></div>
     <a class="item" href="#dashboard" data-view="dashboard">Visão geral</a>
-    <a class="item" href="#servers" data-view="servers">VPNs <span id="nServers" class="tag"></span></a>
     <a class="item" href="#users" data-view="users">Utilizadores <span id="nUsers" class="tag"></span></a>
+    <a class="item" href="#servers" data-view="servers">Servidores VPN <span id="nServers" class="tag"></span></a>
+    <a class="item" href="#devices" data-view="devices">Dispositivos <span id="nOnline" class="tag"></span></a>
+    <a class="item" href="#dns" data-view="dns">DNS</a>
     <a class="item" href="#logs" data-view="logs">Ligações</a>
-    <a class="item" href="#devices" data-view="devices">Dispositivos <span id="nDevices" class="tag"></span></a>
     <div class="spacer"></div>
-    <div class="who"><span id="whoEmail"></span><br><button class="ghost" onclick="logout()" style="padding-left:0">Sair</button></div>
+    <div class="who"><span id="whoUser"></span><span id="whoCredits"></span><br><button class="ghost" onclick="logout()" style="padding-left:0">Sair</button></div>
   </nav>
   <main id="view"></main>
 </section>
@@ -135,13 +175,13 @@ const API = location.origin + '/api';
 const $ = s => document.querySelector(s);
 let token = localStorage.getItem('svpn_token');
 let me = JSON.parse(localStorage.getItem('svpn_me') || 'null');
-let cache = { servers: [], users: [] };
+let cache = { servers: [], users: [], dns: [], packs: { 1: 1, 3: 3, 6: 6, 12: 12 }, credits: null };
 
 // ---------- HTTP ----------
 async function api(path, opts = {}) {
   const r = await fetch(API + path, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(opts.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
     body: opts.body ? JSON.stringify(opts.body) : undefined
   });
   if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
@@ -149,20 +189,30 @@ async function api(path, opts = {}) {
   if (!r.ok) throw new Error(data.error || ('Erro ' + r.status));
   return data;
 }
-
 function toast(msg, bad) {
   const t = $('#toast'); t.textContent = msg; t.className = bad ? 'bad' : '';
-  clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 2800);
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 3000);
 }
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmtDate = d => d ? new Date(d).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-PT') : '—';
+const fmtDateTime = d => d ? new Date(d).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+const fmtBytes = b => !b ? '0' : b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b > 1e6 ? (b / 1e6).toFixed(0) + ' MB' : (b / 1e3).toFixed(0) + ' KB';
+const val = id => $('#' + id).value.trim();
+function expiryHtml(d) {
+  if (!d) return '<span class="muted">—</span>';
+  const days = Math.ceil((new Date(d) - Date.now()) / 864e5);
+  if (days < 0) return `<span class="exp over">Expirou ${fmtDate(d)}</span>`;
+  if (days <= 7) return `<span class="exp soon">${fmtDate(d)} · ${days} dia${days === 1 ? '' : 's'}</span>`;
+  return `<span class="exp">${fmtDate(d)} · ${days} dias</span>`;
+}
+function creditsHtml() { return cache.credits === null ? '' : ` · <b>${cache.credits}</b> crédito${cache.credits === 1 ? '' : 's'}`; }
 
 // ---------- Auth ----------
 async function doLogin(e) {
   e.preventDefault(); $('#lErr').textContent = '';
   try {
-    const d = await api('/auth/login', { method: 'POST', body: { username: $('#lEmail').value, password: $('#lPass').value } });
-    if (d.user.role !== 'admin') throw new Error('Esta conta não é de administrador');
+    const d = await api('/auth/login', { method: 'POST', body: { username: $('#lUser').value, password: $('#lPass').value } });
+    if (!['admin', 'reseller'].includes(d.user.role)) throw new Error('Esta conta não tem acesso ao painel');
     token = d.token; me = d.user;
     localStorage.setItem('svpn_token', token); localStorage.setItem('svpn_me', JSON.stringify(me));
     boot();
@@ -175,291 +225,450 @@ function logout() {
 }
 function boot() {
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
-  $('#whoEmail').textContent = me.username || me.email;
+  $('#whoUser').textContent = me.username;
+  ensurePanelWs();
   route();
 }
 
 // ---------- Router ----------
-const views = { dashboard, servers, users, logs, devices };
+const views = { dashboard, users, servers, dns, logs, devices, remote };
 function route() {
-  const v = (location.hash || '#dashboard').slice(1);
-  document.querySelectorAll('nav a.item').forEach(a => a.classList.toggle('active', a.dataset.view === v));
-  if (v !== 'devices' && currentWatch) stopWatch(true);
-  (views[v] || dashboard)();
+  const [v, arg] = (location.hash || '#dashboard').slice(1).split('/');
+  document.querySelectorAll('nav a.item').forEach(a => a.classList.toggle('active', a.dataset.view === v || (v === 'remote' && a.dataset.view === 'devices')));
+  if (v !== 'remote') leaveRemote();
+  (views[v] || dashboard)(arg);
 }
 window.addEventListener('hashchange', () => token && route());
 
-// ---------- Views ----------
+async function loadStats() {
+  const s = await api('/admin/stats');
+  cache.packs = s.packs; cache.credits = s.credits;
+  $('#nServers').textContent = s.servers; $('#nUsers').textContent = s.users;
+  $('#whoCredits').innerHTML = creditsHtml();
+  return s;
+}
+
+// ---------- Visão geral ----------
 async function dashboard() {
   $('#view').innerHTML = `<div class="head"><div><h2>Visão geral</h2><p class="muted" style="margin:0">Estado do serviço neste momento.</p></div></div><div class="stats" id="stats"></div>`;
   try {
-    const s = await api('/admin/stats');
-    $('#nServers').textContent = s.servers; $('#nUsers').textContent = s.users;
-    $('#stats').innerHTML = [
-      [s.activeConnections, 'ligações ativas'], [`${s.activeUsers}/${s.users}`, 'utilizadores ativos'],
-      [`${s.activeServers}/${s.servers}`, 'VPNs ativas'], [s.logs, 'registos de ligação']
-    ].map(([b, l]) => `<div class="stat"><b>${b}</b><span>${l}</span></div>`).join('');
+    const s = await loadStats();
+    const cards = [
+      [s.activeUsers, 'utilizadores ativos'], [s.expired, 'expirados'],
+      [s.servers, 'servidores VPN ativos'], [s.wireguards, 'WireGuards ativos'], [s.activeConnections, 'ligações ativas']
+    ];
+    if (s.credits !== null) cards.unshift([s.credits, 'créditos disponíveis']);
+    $('#stats').innerHTML = cards.map(([b, l]) => `<div class="stat"><b>${b}</b><span>${l}</span></div>`).join('');
   } catch (e) { toast(e.message, true); }
 }
 
-async function servers() {
-  $('#view').innerHTML = `<div class="head"><div><h2>VPNs</h2><p class="muted" style="margin:0">Cada VPN é uma configuração WireGuard. Atribui-se a utilizadores na aba Utilizadores.</p></div>
-    <button class="primary" onclick="serverForm()">Adicionar VPN</button></div><div id="tbl"></div>`;
-  try {
-    cache.servers = await api('/admin/servers'); $('#nServers').textContent = cache.servers.length;
-    if (!cache.servers.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há VPNs. Cola a primeira configuração WireGuard para começar.</div>`; return; }
-    $('#tbl').innerHTML = `<table><thead><tr><th>VPN</th><th>Endpoint</th><th>Utilizadores</th><th></th></tr></thead><tbody>` +
-      cache.servers.map(s => `<tr>
-        <td><span class="dot ${s.status}"></span>${esc(s.name)}</td>
-        <td class="muted">${esc(s.endpoint || '—')}</td>
-        <td>${s.users}</td>
-        <td class="actions">
-          <button class="ghost" onclick="viewConfig('${s._id}')">Ver config</button>
-          <button class="ghost" onclick="toggleServer('${s._id}')">${s.status === 'active' ? 'Desativar' : 'Ativar'}</button>
-          <button class="ghost" onclick="serverForm('${s._id}')">Editar</button>
-          <button class="ghost danger" onclick="delServer('${s._id}')">Apagar</button>
-        </td></tr>`).join('') + `</tbody></table>`;
-  } catch (e) { toast(e.message, true); }
-}
-
+// ---------- Utilizadores ----------
 async function users() {
   $('#view').innerHTML = `<div class="head"><div><h2>Utilizadores</h2><p class="muted" style="margin:0">O mesmo utilizador e password que o cliente usa na app IPTV.</p></div>
     <button class="primary" onclick="userForm()">Adicionar utilizador</button></div><div id="tbl"></div>`;
   try {
-    [cache.users, cache.servers] = await Promise.all([api('/admin/users'), api('/admin/servers')]);
-    const list = cache.users.filter(u => u.role !== 'admin');
-    const admins = cache.users.filter(u => u.role === 'admin');
-    $('#nUsers').textContent = list.length;
-    const row = u => {
-      const q = u.quota || {}, pct = q.monthlyBandwidth ? Math.min(100, Math.round(100 * (q.usedBandwidth || 0) / q.monthlyBandwidth)) : 0;
-      return `<tr>
-        <td><span class="dot ${u.active === false ? 'inactive' : 'active'}"></span>${esc(u.username || u.email)}</td>
-        <td>${u.assignedVpn ? esc(u.assignedVpn.name) : '<span class="muted">Automática</span>'}</td>
-        <td><span class="bar ${q.status || ''}"><i style="width:${pct}%"></i></span><span class="muted">${q.usedBandwidth || 0}/${q.monthlyBandwidth || 0} GB</span></td>
+    [cache.users, cache.servers, cache.dns] = await Promise.all([api('/admin/users'), api('/admin/servers'), api('/admin/dns'), loadStats()]);
+    if (!cache.users.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há utilizadores. Cria o primeiro com o mesmo login da app IPTV.</div>`; return; }
+    $('#tbl').innerHTML = `<table><thead><tr><th>Utilizador</th><th>Servidor VPN</th><th>DNS</th><th>Validade</th><th>App</th><th></th></tr></thead><tbody>` +
+      cache.users.map(u => `<tr>
+        <td><span class="dot ${u.active === false || u.expired ? 'inactive' : 'active'}"></span>${esc(u.username)}</td>
+        <td>${u.vpnServers?.[0] ? esc(u.vpnServers[0].name) : '<span class="muted">—</span>'}</td>
+        <td class="muted">${(u.dns || []).map(esc).join('<br>') || '—'}</td>
+        <td>${expiryHtml(u.expiresAt)}</td>
+        <td class="muted">${u.requireClientApp ? 'obrigatória' : '—'}</td>
         <td class="actions">
+          <button class="ghost" onclick="location.hash='#devices/${encodeURIComponent(u.username)}'">Dispositivos</button>
+          <button class="ghost" onclick="renewForm('${u._id}')">Renovar</button>
           <button class="ghost" onclick="toggleUser('${u._id}')">${u.active === false ? 'Ativar' : 'Desativar'}</button>
-          <button class="ghost" onclick="resetQuota('${u._id}')">Repor tráfego</button>
           <button class="ghost" onclick="userForm('${u._id}')">Editar</button>
           <button class="ghost danger" onclick="delUser('${u._id}')">Apagar</button>
-        </td></tr>`; };
-    $('#tbl').innerHTML = (list.length
-      ? `<table><thead><tr><th>Utilizador</th><th>VPN</th><th>Tráfego mensal</th><th></th></tr></thead><tbody>${list.map(row).join('')}</tbody></table>`
-      : `<div class="empty">Ainda não há utilizadores. Adiciona o primeiro com o mesmo login da app IPTV.</div>`) +
-      `<h2 style="margin-top:32px;font-size:16px">Administradores</h2>
-       <table><thead><tr><th>Utilizador</th><th>Email</th><th></th></tr></thead><tbody>` +
-      admins.map(a => `<tr><td>${esc(a.username || a.email)}</td><td class="muted">${esc(a.email || '—')}</td>
-        <td class="actions"><button class="ghost" onclick="userForm('${a._id}')">Mudar password</button></td></tr>`).join('') + `</tbody></table>`;
+        </td></tr>`).join('') + `</tbody></table>`;
   } catch (e) { toast(e.message, true); }
 }
 
+function packOptions(sel) {
+  return Object.entries(cache.packs).map(([m, c]) =>
+    `<option value="${m}" ${String(sel) === m ? 'selected' : ''}>${m} ${m === '1' ? 'mês' : 'meses'} (${c} crédito${c === 1 ? '' : 's'})</option>`).join('');
+}
+let formDns = [], formSrv = [];
+function renderSrvChips() {
+  $('#srvChips').innerHTML = formSrv.length
+    ? formSrv.map((id, i) => { const s = cache.servers.find(x => x._id === id); return `<span class="chip">${i + 1}. ${esc(s?.name || id)} <b onclick="formSrv.splice(${i},1);renderSrvChips()" title="Remover">✕</b></span>`; }).join('')
+    : '<span class="note">Nenhum servidor — obrigatório pelo menos um</span>';
+}
+function addSrv() {
+  const v = $('#fSrvSel').value; if (!v || formSrv.includes(v)) return;
+  formSrv.push(v); renderSrvChips(); $('#fSrvSel').value = '';
+}
+function renderDnsChips() {
+  $('#dnsChips').innerHTML = formDns.length
+    ? formDns.map((d, i) => `<span class="chip">${i + 1}. ${esc(d)} <b onclick="formDns.splice(${i},1);renderDnsChips()" title="Remover">✕</b></span>`).join('')
+    : '<span class="note">Nenhum DNS associado</span>';
+}
+function addDns() {
+  const v = $('#fDnsSel').value; if (!v || formDns.includes(v)) return;
+  formDns.push(v); renderDnsChips(); $('#fDnsSel').value = '';
+}
+
+function userForm(id) {
+  const u = cache.users.find(x => x._id === id) || {};
+  formDns = [...(u.dns || [])];
+  formSrv = (u.vpnServers || []).map(s => s._id || s);
+  const servers = cache.servers.filter(s => s.status === 'active');
+  const srvOpts = `<option value="">Selecionar servidor...</option>` + servers.map(s =>
+    `<option value="${s._id}" ${formSrv[0] === s._id ? 'selected' : ''} ${!s.wireguards.some(w => w.active) ? 'disabled' : ''}>${esc(s.name)} (${s.wireguards.filter(w => w.active).length} WG)</option>`).join('');
+  const dnsOpts = `<option value="">Escolher DNS...</option>` + cache.dns.filter(d => d.active).map(d => `<option value="${esc(d.domain)}">${esc(d.domain)}${d.label ? ' — ' + esc(d.label) : ''}</option>`).join('');
+  const balance = cache.credits === null ? 'Sem limite de créditos (administrador)' : `Saldo atual: <b>${cache.credits}</b> crédito${cache.credits === 1 ? '' : 's'}`;
+
+  openDrawer(`<h2>${id ? 'Editar utilizador' : 'Novo utilizador'}</h2>
+    <div class="grid2">
+      <div><label for="fUser">Utilizador *</label><input id="fUser" value="${esc(u.username || '')}" autocomplete="off" ${id ? 'disabled' : ''}></div>
+      <div><label for="fPass">${id ? 'Nova password' : 'Password *'}</label><input id="fPass" type="password" autocomplete="new-password" placeholder="${id ? 'vazio = manter' : ''}"></div>
+    </div>
+    <label for="fNotes">Notas (opcional)</label>
+    <textarea id="fNotes" style="min-height:70px;font:inherit">${esc(u.notes || '')}</textarea>
+    <div class="box">
+      <label class="switch" style="margin:0"><input type="checkbox" id="fApp" ${u.requireClientApp ? 'checked' : ''}> App Cliente obrigatória — verificar e instalar</label>
+      <div class="note">Se não marcar, entra direto sem verificação.</div>
+    </div>
+    <label for="fDnsSel">DNS (múltiplos)</label>
+    <div style="display:flex;gap:8px"><select id="fDnsSel">${dnsOpts}</select><button type="button" onclick="addDns()">Adicionar</button></div>
+    <div class="note">A app tenta o primeiro; se falhar, passa ao seguinte.</div>
+    <div class="chips" id="dnsChips"></div>
+    ${id ? '' : `<label for="fPack">Pack VPN *</label><select id="fPack">${packOptions(1)}</select><div class="box info">${balance}</div>`}
+    <label for="fSrvSel">Servidor VPN *</label>
+    <select id="fSrvSel">${srvOpts}</select>
+    <div class="note">O sistema roda automaticamente entre os WireGuards ativos do servidor.</div>
+    <div class="row"><button onclick="closeDrawer()">Voltar</button><button class="primary" onclick="saveUser('${id || ''}')">${id ? 'Guardar' : 'Criar utilizador'}</button></div>`);
+  renderDnsChips();
+}
+async function saveUser(id) {
+  const body = { notes: val('fNotes'), requireClientApp: $('#fApp').checked, dns: formDns, vpnServers: [val('fSrvSel')].filter(Boolean) };
+  const pass = $('#fPass').value; if (pass) body.password = pass;
+  if (!id) {
+    body.username = val('fUser'); body.packMonths = Number(val('fPack'));
+    if (!body.username || !pass) return toast('Utilizador e password são obrigatórios', true);
+  }
+  if (!body.vpnServers.length) return toast('Seleciona o servidor VPN', true);
+  try {
+    await api(id ? `/admin/users/${id}` : '/admin/users', { method: id ? 'PUT' : 'POST', body });
+    closeDrawer(); toast(id ? 'Guardado' : 'Utilizador criado'); users();
+  } catch (e) { toast(e.message, true); }
+}
+function renewForm(id) {
+  const u = cache.users.find(x => x._id === id);
+  openDrawer(`<h2>Renovar ${esc(u.username)}</h2>
+    <p class="muted" style="margin:4px 0 0">Validade atual: ${fmtDate(u.expiresAt)}. O novo pack soma-se à validade (ou começa hoje, se já expirou).</p>
+    <label for="fPack">Pack VPN</label><select id="fPack">${packOptions(u.packMonths || 1)}</select>
+    <div class="box info">${cache.credits === null ? 'Sem limite de créditos (administrador)' : `Saldo atual: <b>${cache.credits}</b>`}</div>
+    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="renew('${id}')">Renovar</button></div>`);
+}
+async function renew(id) {
+  try { await api(`/admin/users/${id}/renew`, { method: 'POST', body: { packMonths: Number(val('fPack')) } }); closeDrawer(); toast('Renovado'); users(); }
+  catch (e) { toast(e.message, true); }
+}
+async function toggleUser(id) {
+  const u = cache.users.find(x => x._id === id);
+  try { await api(`/admin/users/${id}`, { method: 'PUT', body: { active: u.active === false } }); users(); } catch (e) { toast(e.message, true); }
+}
+async function delUser(id) {
+  const u = cache.users.find(x => x._id === id);
+  if (!confirm(`Apagar o utilizador ${u.username}? Deixa de conseguir entrar na VPN. Os créditos não são devolvidos.`)) return;
+  try { await api(`/admin/users/${id}`, { method: 'DELETE' }); toast('Utilizador apagado'); users(); } catch (e) { toast(e.message, true); }
+}
+
+// ---------- Servidores VPN ----------
+async function servers() {
+  $('#view').innerHTML = `<div class="head"><div><h2>Servidores VPN</h2><p class="muted" style="margin:0">Cada servidor agrupa vários WireGuards; os utilizadores rodam entre os ativos.</p></div>
+    <button class="primary" onclick="serverForm()">Adicionar servidor</button></div><div id="tbl"></div>`;
+  try {
+    cache.servers = await api('/admin/servers'); $('#nServers').textContent = cache.servers.filter(s => s.status === 'active').length;
+    if (!cache.servers.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há servidores. Cria um e cola-lhe as configurações WireGuard.</div>`; return; }
+    $('#tbl').innerHTML = cache.servers.map(s => `
+      <table style="margin-bottom:14px"><tbody>
+        <tr><td style="width:40%"><span class="dot ${s.status}"></span><b>${esc(s.name)}</b><div class="note">${s.wireguards.filter(w => w.active).length}/${s.wireguards.length} WireGuards ativos · ${s.users} utilizador${s.users === 1 ? '' : 'es'}</div></td>
+          <td class="actions">
+            <button class="ghost" onclick="wgForm('${s._id}')">Adicionar WireGuard</button>
+            <button class="ghost" onclick="toggleServer('${s._id}')">${s.status === 'active' ? 'Desativar' : 'Ativar'}</button>
+            <button class="ghost" onclick="serverForm('${s._id}')">Renomear</button>
+            <button class="ghost danger" onclick="delServer('${s._id}')">Apagar</button>
+          </td></tr>
+        <tr><td colspan="2" style="padding-top:0">
+          ${s.wireguards.length ? `<div class="sub">` + s.wireguards.map(w => `
+            <div class="wg"><span class="dot ${w.active ? 'active' : 'inactive'}"></span><span>${esc(w.name)}</span><span class="ep">${esc(w.endpoint || 'sem endpoint')}</span>
+              <span class="muted" style="font-size:12px">${w.assigned}× entregue</span>
+              <button class="ghost" onclick="viewWg('${s._id}','${w._id}')">Ver</button>
+              <button class="ghost" onclick="toggleWg('${s._id}','${w._id}',${!w.active})">${w.active ? 'Desativar' : 'Ativar'}</button>
+              <button class="ghost danger" onclick="delWg('${s._id}','${w._id}')">Apagar</button></div>`).join('') + `</div>`
+            : `<div class="note" style="margin-left:22px">Sem WireGuards — este servidor ainda não pode ser atribuído a utilizadores.</div>`}
+        </td></tr></tbody></table>`).join('');
+  } catch (e) { toast(e.message, true); }
+}
+function serverForm(id) {
+  const s = cache.servers.find(x => x._id === id) || {};
+  openDrawer(`<h2>${id ? 'Renomear servidor' : 'Novo servidor VPN'}</h2>
+    <label for="fName">Nome</label><input id="fName" value="${esc(s.name || '')}" placeholder="Ex.: Portugal 1, Alemanha, Hetzner-01">
+    ${id ? '' : '<p class="note">Depois de criar, adiciona-lhe uma ou mais configurações WireGuard.</p>'}
+    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveServer('${id || ''}')">${id ? 'Guardar' : 'Criar servidor'}</button></div>`);
+}
+async function saveServer(id) {
+  const name = val('fName'); if (!name) return toast('O nome é obrigatório', true);
+  try { await api(id ? `/admin/servers/${id}` : '/admin/servers', { method: id ? 'PUT' : 'POST', body: { name } }); closeDrawer(); toast(id ? 'Guardado' : 'Servidor criado'); servers(); }
+  catch (e) { toast(e.message, true); }
+}
+async function toggleServer(id) {
+  const s = cache.servers.find(x => x._id === id);
+  try { await api(`/admin/servers/${id}`, { method: 'PUT', body: { status: s.status === 'active' ? 'inactive' : 'active' } }); servers(); } catch (e) { toast(e.message, true); }
+}
+async function delServer(id) {
+  const s = cache.servers.find(x => x._id === id);
+  if (!confirm(`Apagar o servidor "${s.name}" e os seus ${s.wireguards.length} WireGuards? ${s.users ? s.users + ' utilizador(es) ficam sem servidor.' : ''}`)) return;
+  try { await api(`/admin/servers/${id}`, { method: 'DELETE' }); toast('Servidor apagado'); servers(); } catch (e) { toast(e.message, true); }
+}
+function wgForm(sid) {
+  const s = cache.servers.find(x => x._id === sid);
+  openDrawer(`<h2>WireGuard em ${esc(s.name)}</h2>
+    <label for="fWgName">Nome (opcional)</label><input id="fWgName" placeholder="WG ${s.wireguards.length + 1}">
+    <label for="fConfig">Configuração WireGuard (.conf)</label>
+    <textarea id="fConfig" placeholder="[Interface]&#10;PrivateKey = ...&#10;Address = 10.0.0.2/32&#10;DNS = 1.1.1.1&#10;&#10;[Peer]&#10;PublicKey = ...&#10;Endpoint = vpn.exemplo.pt:51820&#10;AllowedIPs = 0.0.0.0/0"></textarea>
+    <div class="note">O endpoint é lido automaticamente da linha Endpoint.</div>
+    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveWg('${sid}')">Adicionar</button></div>`);
+}
+async function saveWg(sid) {
+  const config = $('#fConfig').value.trim(); if (!config) return toast('Cola a configuração WireGuard', true);
+  try { await api(`/admin/servers/${sid}/wireguards`, { method: 'POST', body: { name: val('fWgName'), config } }); closeDrawer(); toast('WireGuard adicionado'); servers(); }
+  catch (e) { toast(e.message, true); }
+}
+async function viewWg(sid, wid) {
+  try {
+    const c = await api(`/admin/servers/${sid}/wireguards/${wid}/config`);
+    openDrawer(`<h2>${esc(c.name)}</h2><div class="note">${esc(c.endpoint || '')}</div><label>Configuração</label><textarea readonly>${esc(c.config)}</textarea>
+      <div class="row"><button onclick="navigator.clipboard.writeText(document.querySelector('#drawer textarea').value).then(()=>toast('Copiado'))">Copiar</button><button class="primary" onclick="closeDrawer()">Fechar</button></div>`);
+  } catch (e) { toast(e.message, true); }
+}
+async function toggleWg(sid, wid, active) {
+  try { await api(`/admin/servers/${sid}/wireguards/${wid}`, { method: 'PUT', body: { active } }); servers(); } catch (e) { toast(e.message, true); }
+}
+async function delWg(sid, wid) {
+  if (!confirm('Apagar este WireGuard?')) return;
+  try { await api(`/admin/servers/${sid}/wireguards/${wid}`, { method: 'DELETE' }); toast('WireGuard apagado'); servers(); } catch (e) { toast(e.message, true); }
+}
+
+// ---------- DNS ----------
+async function dns() {
+  $('#view').innerHTML = `<div class="head"><div><h2>DNS</h2><p class="muted" style="margin:0">Domínios IPTV que podes associar aos utilizadores.</p></div>
+    <button class="primary" onclick="dnsForm()">Adicionar DNS</button></div><div id="tbl"></div>`;
+  try {
+    cache.dns = await api('/admin/dns');
+    if (!cache.dns.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há DNS. Adiciona o primeiro domínio IPTV (ex.: globalstreams.top).</div>`; return; }
+    $('#tbl').innerHTML = `<table><thead><tr><th>Domínio</th><th>Etiqueta</th><th></th></tr></thead><tbody>` +
+      cache.dns.map(d => `<tr><td><span class="dot ${d.active ? 'active' : 'inactive'}"></span>${esc(d.domain)}</td><td class="muted">${esc(d.label || '—')}</td>
+        <td class="actions"><button class="ghost" onclick="toggleDns('${d._id}',${!d.active})">${d.active ? 'Desativar' : 'Ativar'}</button>
+        <button class="ghost danger" onclick="delDns('${d._id}')">Apagar</button></td></tr>`).join('') + `</tbody></table>`;
+  } catch (e) { toast(e.message, true); }
+}
+function dnsForm() {
+  openDrawer(`<h2>Novo DNS</h2>
+    <label for="fDomain">Domínio</label><input id="fDomain" placeholder="globalstreams.top">
+    <label for="fLabel">Etiqueta (opcional)</label><input id="fLabel" placeholder="Ex.: principal, backup">
+    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveDns()">Adicionar</button></div>`);
+}
+async function saveDns() {
+  const domain = val('fDomain'); if (!domain) return toast('Domínio obrigatório', true);
+  try { await api('/admin/dns', { method: 'POST', body: { domain, label: val('fLabel') } }); closeDrawer(); toast('DNS adicionado'); dns(); } catch (e) { toast(e.message, true); }
+}
+async function toggleDns(id, active) { try { await api(`/admin/dns/${id}`, { method: 'PUT', body: { active } }); dns(); } catch (e) { toast(e.message, true); } }
+async function delDns(id) {
+  if (!confirm('Apagar este DNS? É removido de todos os utilizadores que o tinham.')) return;
+  try { await api(`/admin/dns/${id}`, { method: 'DELETE' }); toast('DNS apagado'); dns(); } catch (e) { toast(e.message, true); }
+}
+
+// ---------- Ligações ----------
 async function logs() {
   $('#view').innerHTML = `<div class="head"><div><h2>Ligações</h2><p class="muted" style="margin:0">Últimos 100 registos enviados pelos dispositivos.</p></div>
     <button onclick="logs()">Atualizar</button></div><div id="tbl"></div>`;
   try {
     const l = await api('/admin/logs?limit=100');
     if (!l.length) { $('#tbl').innerHTML = `<div class="empty">Sem registos ainda. Aparecem aqui quando a app começar a reportar ligações.</div>`; return; }
-    $('#tbl').innerHTML = `<table><thead><tr><th>Quando</th><th>Utilizador</th><th>VPN</th><th>IP público</th><th>Estado</th><th>↓ / ↑</th></tr></thead><tbody>` +
-      l.map(x => `<tr>
-        <td class="muted">${fmtDate(x.createdAt)}</td><td>${esc(x.userId?.username || '—')}</td><td>${esc(x.serverId?.name || '—')}</td>
-        <td>${esc(x.publicIp || '—')}</td>
-        <td><span class="dot ${x.status}"></span>${esc(x.status)}</td>
+    $('#tbl').innerHTML = `<table><thead><tr><th>Quando</th><th>Utilizador</th><th>Servidor</th><th>IP público</th><th>Estado</th><th>↓ / ↑</th></tr></thead><tbody>` +
+      l.map(x => `<tr><td class="muted">${fmtDateTime(x.createdAt)}</td><td>${esc(x.userId?.username || '—')}</td><td>${esc(x.serverId?.name || '—')}</td>
+        <td>${esc(x.publicIp || '—')}</td><td><span class="dot ${x.status}"></span>${esc(x.status)}</td>
         <td class="muted">${fmtBytes(x.bytesDownloaded)} / ${fmtBytes(x.bytesUploaded)}</td></tr>`).join('') + `</tbody></table>`;
   } catch (e) { toast(e.message, true); }
 }
-const fmtBytes = b => !b ? '0' : b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b > 1e6 ? (b / 1e6).toFixed(0) + ' MB' : (b / 1e3).toFixed(0) + ' KB';
 
-// ---------- Dispositivos (ecrã ao vivo + controlo remoto) ----------
-let adminWs = null, currentWatch = null, pc = null;
 
-function connectAdminWs() {
-  if (adminWs && (adminWs.readyState === WebSocket.OPEN || adminWs.readyState === WebSocket.CONNECTING)) return;
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  adminWs = new WebSocket(`${proto}://${location.host}/ws/admin?token=${encodeURIComponent(token)}`);
-  adminWs.onmessage = (ev) => {
-    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
-    if (msg.type === 'devices') {
-      cache.devices = msg.list;
-      const nd = $('#nDevices'); if (nd) nd.textContent = msg.list.length;
-      if (currentWatch && !msg.list.some(x => x.deviceId === currentWatch)) { toast('O dispositivo desligou-se'); stopWatch(true); }
-      else if ((location.hash || '#dashboard').slice(1) === 'devices' && !currentWatch) renderDeviceList();
-    } else if (msg.type === 'offer' && msg.deviceId === currentWatch) {
-      handleOffer(msg.payload);
-    } else if (msg.type === 'ice-candidate' && msg.deviceId === currentWatch) {
-      if (pc) pc.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(() => {});
-    } else if (msg.type === 'log' && msg.deviceId === currentWatch) {
-      appendLog(msg.message);
-    }
+// ---------- WebSocket do painel ----------
+let pws = null, pwsTimer = null;
+const devState = { list: [], watching: null, auto: false, frames: 0 };
+function wsUrl() { return location.origin.replace(/^http/, 'ws') + '/ws/panel?token=' + token; }
+function ensurePanelWs() {
+  if (pws && (pws.readyState === 0 || pws.readyState === 1)) return;
+  pws = new WebSocket(wsUrl());
+  pws.onopen = () => { clearTimeout(pwsTimer); if (devState.watching) pws.send(JSON.stringify({ type: 'watch', deviceId: devState.watching })); };
+  pws.onclose = () => { pwsTimer = setTimeout(ensurePanelWs, 3000); };
+  pws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'devices') { devState.list = m.list; onDevicesChanged(); }
+    else if (m.type === 'device') { const i = devState.list.findIndex(d => d.deviceId === m.device.deviceId); if (i >= 0) devState.list[i] = m.device; else devState.list.unshift(m.device); onDevicesChanged(); }
+    else if (m.type === 'frame' && m.deviceId === devState.watching) { onFrame(m.jpeg); }
+    else if (m.type === 'result' && m.deviceId === devState.watching) { cmdLog(`${m.ok ? '✓' : '✗'} ${m.command}${m.detail ? ': ' + m.detail : ''}`); }
+    else if (m.type === 'log' && m.deviceId === devState.watching) { cmdLog(m.text); }
   };
-  adminWs.onclose = () => { adminWs = null; setTimeout(() => { if (token) connectAdminWs(); }, 3000); };
+}
+function wsSend(obj) { if (pws?.readyState === 1) pws.send(JSON.stringify(obj)); else toast('Sem ligação em tempo real — a religar…', true); }
+function onDevicesChanged() {
+  $('#nOnline').textContent = devState.list.filter(d => d.online).length || '';
+  if (location.hash.startsWith('#devices')) renderDevices();
+  if (devState.watching) renderDevHead();
+}
+const devName = d => d.username || '—';
+const devLabel = d => [d.brand, d.model].filter(Boolean).join(' ') || 'Dispositivo';
+
+// ---------- Dispositivos ----------
+async function devices(filterUser) {
+  ensurePanelWs();
+  $('#view').innerHTML = `<div class="head"><div><h2>Dispositivos</h2><p class="muted" style="margin:0">Aparelhos com a app ligada. Verde = online agora.</p></div>
+    <div style="display:flex;gap:8px;align-items:center"><input id="devFilter" placeholder="Filtrar por utilizador…" style="width:220px" value="${esc(decodeURIComponent(filterUser || ''))}" oninput="renderDevices()"><button onclick="wsSend({type:'list'})">Atualizar</button></div></div><div id="tbl"></div>`;
+  try { if (!devState.list.length) devState.list = await api('/admin/devices'); } catch (e) { toast(e.message, true); }
+  renderDevices();
+}
+function renderDevices() {
+  const tbl = $('#tbl'); if (!tbl) return;
+  const f = ($('#devFilter')?.value || '').toLowerCase();
+  const list = devState.list.filter(d => !f || (d.username || '').toLowerCase().includes(f) || (d.mac || '').toLowerCase().includes(f));
+  if (!list.length) { tbl.innerHTML = `<div class="empty">${devState.list.length ? 'Nenhum dispositivo corresponde ao filtro.' : 'Ainda nenhum dispositivo se ligou. Assim que a app abrir num aparelho, aparece aqui.'}</div>`; return; }
+  tbl.innerHTML = `<table><thead><tr><th>Utilizador</th><th>Aparelho</th><th>MAC / IP</th><th>Ecrã</th><th>Visto</th><th></th></tr></thead><tbody>` +
+    list.map(d => `<tr class="devrow">
+      <td><span class="dot ${d.online ? 'active' : 'inactive'}"></span>${esc(devName(d))}</td>
+      <td>${esc(devLabel(d))}<div class="sub2">Android ${esc(d.androidVersion || '?')} · app ${esc(d.appVersion || '?')}${d.vpnOn ? ' · <span style="color:var(--accent)">VPN ON</span>' : ''}</div></td>
+      <td class="muted">${esc(d.mac || '—')}<div class="sub2">${esc(d.ip || '')}</div></td>
+      <td>${esc(d.screen || '—')}${d.playing ? `<div class="sub2">▶ ${esc(d.playing)}</div>` : ''}</td>
+      <td class="muted">${d.online ? '<span style="color:var(--ok)">online</span>' : fmtDateTime(d.lastSeen)}</td>
+      <td class="actions"><button class="${d.online ? 'primary' : ''}" onclick="location.hash='#remote/${d.deviceId}'">Controlo remoto</button>
+        <button class="ghost danger" onclick="delDevice('${d.deviceId}')">Remover</button></td></tr>`).join('') + `</tbody></table>`;
+}
+async function delDevice(id) {
+  if (!confirm('Remover este dispositivo e o seu histórico? Volta a aparecer se a app se ligar de novo.')) return;
+  try { await api(`/admin/devices/${id}`, { method: 'DELETE' }); devState.list = devState.list.filter(d => d.deviceId !== id); renderDevices(); toast('Removido'); } catch (e) { toast(e.message, true); }
 }
 
-async function devices() {
-  connectAdminWs();
-  renderDeviceList();
-}
-function renderDeviceList() {
-  $('#view').innerHTML = `<div class="head"><div><h2>Dispositivos</h2><p class="muted" style="margin:0">Ecrã ao vivo e controlo remoto dos dispositivos ligados.</p></div></div><div id="tbl"></div>`;
-  const list = cache.devices || [];
-  $('#nDevices').textContent = list.length;
-  $('#tbl').innerHTML = list.length
-    ? `<table><thead><tr><th>Dispositivo</th><th>Utilizador</th><th>Última atividade</th><th></th></tr></thead><tbody>` +
-      list.map(d => `<tr>
-        <td><span class="dot active"></span>${esc(d.name)}</td>
-        <td class="muted">${esc(d.username)}</td>
-        <td class="muted">${fmtDate(d.lastSeen)}</td>
-        <td class="actions"><button class="ghost" onclick="watchDevice('${d.deviceId}')">Ver ao vivo</button></td>
-      </tr>`).join('') + `</tbody></table>`
-    : `<div class="empty">Nenhum dispositivo ligado neste momento.</div>`;
-}
-
-function watchDevice(id) {
-  currentWatch = id;
-  const d = (cache.devices || []).find(x => x.deviceId === id) || { deviceId: id, name: id };
-  $('#view').innerHTML = liveViewHtml(d);
-  connectAdminWs();
-  const send = () => adminWs.send(JSON.stringify({ type: 'watch', deviceId: id }));
-  if (adminWs.readyState === WebSocket.OPEN) send(); else adminWs.addEventListener('open', send, { once: true });
-}
-function stopWatch(skipList) {
-  if (currentWatch && adminWs && adminWs.readyState === WebSocket.OPEN) {
-    try { adminWs.send(JSON.stringify({ type: 'unwatch', deviceId: currentWatch })); } catch {}
-  }
-  currentWatch = null;
-  if (pc) { pc.close(); pc = null; }
-  if (!skipList) renderDeviceList(); else if ((location.hash || '#dashboard').slice(1) === 'devices') renderDeviceList();
-}
-
-function liveViewHtml(d) {
-  return `<div class="head"><div><h2>${esc(d.name)}</h2><p class="muted" style="margin:0">${esc(d.username || '')}</p></div><button onclick="stopWatch()">← Voltar</button></div>
-  <div style="display:grid;grid-template-columns:1fr 260px;gap:20px;align-items:start">
-    <div>
-      <video id="liveVideo" autoplay playsinline muted style="width:100%;background:#000;border-radius:10px;border:1px solid var(--line)"></video>
-      <div id="liveLog" style="margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;height:140px;overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;color:var(--muted)"></div>
+// ---------- Controlo remoto ----------
+async function remote(deviceId) {
+  ensurePanelWs();
+  if (!deviceId) return location.hash = '#devices';
+  let d = devState.list.find(x => x.deviceId === deviceId);
+  if (!d) { try { d = await api(`/admin/devices/${deviceId}`); devState.list.push(d); } catch (e) { toast(e.message, true); return location.hash = '#devices'; } }
+  devState.watching = deviceId; devState.frames = 0; devState.auto = false;
+  $('#view').innerHTML = `
+    <div class="head"><div><h2>Controlo Remoto — ${esc(devName(d))}</h2></div><button onclick="location.hash='#devices'">← Voltar</button></div>
+    <div class="devhead" id="devHead"></div>
+    <div class="screen">
+      <div class="bar"><span class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></span>
+        <span class="muted" style="font-size:12px">🖥 Ecrã ao vivo</span><span class="sp" style="flex:1"></span>
+        <span class="muted" style="font-size:12px" id="frameInfo">Sem frames</span>
+        <button class="quick b-green" onclick="cmd('SCREENSHOT')">📷 Capturar</button>
+        <button class="rec" id="liveBtn" onclick="toggleLive()">● LIVE</button>
+        <button id="autoBtn" onclick="toggleAuto()" title="Pede uma captura a cada 5 s">⟳ Auto</button></div>
+      <div class="view"><img id="frameImg" class="hidden" alt="Ecrã do dispositivo"><div class="placeholder" id="framePh">${d.lastScreenshotAt ? 'A carregar última captura…' : 'Clica em LIVE para ver o ecrã em tempo real, ou Capturar para uma imagem.'}</div><span class="live hidden" id="liveTag">AO VIVO</span></div>
+      <div class="foot"><span id="frameFoot">—</span><span>${esc(d.mac || '')}</span></div>
     </div>
-    <div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
-        <div></div><button onclick="sendCommand('key',{key:'DPAD_UP'})">▲</button><div></div>
-        <button onclick="sendCommand('key',{key:'DPAD_LEFT'})">◀</button><button class="primary" onclick="sendCommand('key',{key:'DPAD_CENTER'})">OK</button><button onclick="sendCommand('key',{key:'DPAD_RIGHT'})">▶</button>
-        <div></div><button onclick="sendCommand('key',{key:'DPAD_DOWN'})">▼</button><div></div>
-      </div>
-      <div style="display:grid;gap:8px">
-        <button onclick="sendCommand('key',{key:'BACK'})">Voltar (app)</button>
-        <button onclick="sendCommand('key',{key:'HOME'})">Home</button>
-        <button class="danger" onclick="if(confirm('Reiniciar a app no dispositivo?'))sendCommand('restart')">Reiniciar app</button>
-        <button onclick="sendMessagePrompt()">Enviar mensagem</button>
-      </div>
-    </div>
-  </div>`;
+    <div class="card"><h3>⚡ Ações rápidas</h3><div class="quick">
+      <button class="b-red" onclick="confirmCmd('RESTART','Reiniciar a app neste aparelho?')">↻ Reiniciar App</button>
+      <button class="b-yel" onclick="messageForm()">✉ Enviar Mensagem</button>
+      <button class="b-cyan" onclick="editUserFromDevice('${esc(d.username || '')}')">✎ Editar utilizador</button>
+      <button class="b-cyan" onclick="historyDrawer('${deviceId}')">⟲ Histórico</button>
+      <button class="b-green" onclick="cmd('RELOAD')">⌂ Menu principal</button></div></div>
+    <div class="card"><h3>› Log de comandos</h3><div class="cmdlog" id="cmdLog"></div></div>
+    <div class="remote"><div class="brand">STREAMVPN REMOTE</div>
+      <div class="pad"><span></span><button onclick="key('UP')">▲</button><span></span>
+        <button onclick="key('LEFT')">◀</button><button class="ok" onclick="key('OK')">OK</button><button onclick="key('RIGHT')">▶</button>
+        <span></span><button onclick="key('DOWN')">▼</button><span></span></div>
+      <button class="back" onclick="key('BACK')">← Voltar</button></div>`;
+  renderDevHead();
+  cmdLog(`Controlo remoto iniciado para ${devName(d)}`);
+  if (d.lastScreenshotAt) { try { const full = await api(`/admin/devices/${deviceId}`); if (full.lastScreenshot) onFrame(full.lastScreenshot, true); } catch {} }
+  document.onkeydown = remoteKeys;
 }
-
-async function handleOffer(offer) {
+function leaveRemote() {
+  if (devState.watching) { if (pws?.readyState === 1) pws.send(JSON.stringify({ type: 'unwatch', deviceId: devState.watching })); devState.watching = null; }
+  clearInterval(devState.autoTimer); devState.auto = false; document.onkeydown = null;
+}
+function renderDevHead() {
+  const d = devState.list.find(x => x.deviceId === devState.watching); const el = $('#devHead'); if (!d || !el) return;
+  el.innerHTML = `<span class="dot ${d.online ? 'active' : 'inactive'}"></span><b>${esc(devName(d))}</b>
+    <span class="muted" style="font-size:12px">${esc(d.mac || devLabel(d))}</span>
+    <span class="tag" style="background:#1F4B5A;color:#fff">${esc(d.screen || (d.online ? 'App aberta' : 'Offline'))}</span>
+    ${d.playing ? `<span class="muted" style="font-size:12px">▶ ${esc(d.playing)}</span>` : ''}
+    ${d.vpnOn ? '<span class="tag" style="color:var(--accent)">VPN ON</span>' : ''}
+    <span class="sp"></span><span class="muted" style="font-size:12px">🕒 ${d.online ? 'online' : 'visto ' + fmtDateTime(d.lastSeen)}</span>`;
+}
+function cmdLog(text) {
+  const el = $('#cmdLog'); if (!el) return;
+  const t = new Date().toLocaleTimeString('pt-PT');
+  el.insertAdjacentHTML('afterbegin', `<div><span>[${t}]</span>${esc(text)}</div>`);
+}
+function onFrame(jpeg, stored) {
+  const img = $('#frameImg'); if (!img) return;
+  img.src = 'data:image/jpeg;base64,' + jpeg; img.classList.remove('hidden'); $('#framePh')?.classList.add('hidden');
+  if (!stored) { devState.frames++; $('#frameInfo').textContent = `Frame ${devState.frames}`; }
+  $('#frameFoot').textContent = (stored ? '📷 Última captura guardada' : (devState.liveOn ? '🔴 AO VIVO — frame #' + devState.frames : '📷 Captura')) + ' · ' + new Date().toLocaleTimeString('pt-PT');
+}
+function cmd(command, payload) {
+  const d = devState.list.find(x => x.deviceId === devState.watching);
+  if (!d?.online) return toast('Dispositivo offline', true);
+  wsSend({ type: 'command', deviceId: devState.watching, command, payload });
+}
+function confirmCmd(command, text) { if (confirm(text)) cmd(command); }
+function key(k) { cmd('KEY', { key: k }); }
+function remoteKeys(e) {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+  const map = { ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', Enter: 'OK', Backspace: 'BACK', Escape: 'BACK' };
+  if (map[e.key]) { e.preventDefault(); key(map[e.key]); }
+}
+function toggleLive() {
+  devState.liveOn = !devState.liveOn;
+  $('#liveBtn').classList.toggle('on', devState.liveOn); $('#liveBtn').textContent = devState.liveOn ? '● LIVE ON' : '● LIVE';
+  $('#liveTag').classList.toggle('hidden', !devState.liveOn);
+  wsSend({ type: devState.liveOn ? 'watch' : 'unwatch', deviceId: devState.watching });
+  cmdLog(devState.liveOn ? 'A iniciar transmissão ao vivo…' : 'Transmissão ao vivo parada');
+}
+function toggleAuto() {
+  devState.auto = !devState.auto; $('#autoBtn').classList.toggle('primary', devState.auto);
+  clearInterval(devState.autoTimer);
+  if (devState.auto) { cmd('SCREENSHOT'); devState.autoTimer = setInterval(() => cmd('SCREENSHOT'), 5000); }
+}
+function messageForm() {
+  openDrawer(`<h2>Enviar mensagem</h2><p class="muted" style="margin:4px 0 0">Aparece num diálogo no ecrã do cliente.</p>
+    <label for="fMsgTitle">Título</label><input id="fMsgTitle" value="Mensagem do suporte">
+    <label for="fMsg">Mensagem</label><textarea id="fMsg" style="min-height:110px;font:inherit" placeholder="Ex.: A sua subscrição termina em 3 dias."></textarea>
+    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="sendMessage()">Enviar</button></div>`);
+}
+function sendMessage() {
+  const text = val('fMsg'); if (!text) return toast('Escreve a mensagem', true);
+  cmd('MESSAGE', { title: val('fMsgTitle'), text }); closeDrawer(); cmdLog(`Mensagem enviada: "${text.slice(0, 60)}"`);
+}
+async function editUserFromDevice(username) {
+  try { cache.servers = await api('/admin/servers'); cache.dns = await api('/admin/dns'); cache.users = await api('/admin/users'); await loadStats(); } catch (e) { return toast(e.message, true); }
+  const u = cache.users.find(x => x.username === username); if (!u) return toast('Utilizador não encontrado', true);
+  userForm(u._id);
+}
+async function historyDrawer(deviceId) {
   try {
-    const turn = await api('/turn-credentials');
-    pc = new RTCPeerConnection({ iceServers: [{ urls: turn.urls, username: turn.username, credential: turn.credential }] });
-    pc.ontrack = (ev) => { const v = $('#liveVideo'); if (v) v.srcObject = ev.streams[0]; };
-    pc.onicecandidate = (ev) => { if (ev.candidate && adminWs) adminWs.send(JSON.stringify({ type: 'ice-candidate', deviceId: currentWatch, payload: ev.candidate })); };
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    adminWs.send(JSON.stringify({ type: 'answer', deviceId: currentWatch, payload: answer }));
+    const ev = await api(`/admin/devices/${deviceId}/events?limit=200`);
+    const label = { command: 'Comando', result: 'Resultado', online: 'Online', offline: 'Offline', message: 'Mensagem', error: 'Erro' };
+    openDrawer(`<h2>Histórico</h2><div class="cmdlog" style="max-height:70vh;margin-top:12px">` +
+      (ev.length ? ev.map(e => `<div><span>[${fmtDateTime(e.createdAt)}]</span>${label[e.type] || e.type}${e.command ? ' ' + esc(e.command) : ''}${e.by ? ' por ' + esc(e.by) : ''}${e.ok === false ? ' ✗' : ''}${e.detail ? ' — ' + esc(e.detail) : ''}${e.payload?.text ? ' — "' + esc(e.payload.text) + '"' : ''}</div>`).join('') : '<div class="muted">Sem eventos ainda.</div>') +
+      `</div><div class="row"><button class="primary" onclick="closeDrawer()">Fechar</button></div>`);
   } catch (e) { toast(e.message, true); }
 }
-function sendCommand(action, payload) {
-  if (!currentWatch || !adminWs || adminWs.readyState !== WebSocket.OPEN) return;
-  adminWs.send(JSON.stringify({ type: 'command', deviceId: currentWatch, action, payload }));
-}
-function sendMessagePrompt() {
-  const m = prompt('Mensagem a mostrar no dispositivo:');
-  if (m) sendCommand('message', { text: m });
-}
-function appendLog(msg) {
-  const box = $('#liveLog'); if (!box) return;
-  box.insertAdjacentHTML('beforeend', `<div>${esc(msg)}</div>`);
-  box.scrollTop = box.scrollHeight;
-}
 
-// ---------- Drawer / forms ----------
-function openDrawer(html) { $('#drawer').innerHTML = html; $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden', 'false'); $('#scrim').classList.remove('hidden'); $('#drawer input,#drawer textarea,#drawer select')?.focus(); }
+// ---------- Drawer ----------
+function openDrawer(html) { $('#drawer').innerHTML = html; $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden', 'false'); $('#scrim').classList.remove('hidden'); $('#drawer input:not([disabled]),#drawer textarea,#drawer select')?.focus(); }
 function closeDrawer() { $('#drawer').classList.remove('open'); $('#drawer').setAttribute('aria-hidden', 'true'); $('#scrim').classList.add('hidden'); }
-const val = id => $('#' + id).value.trim();
-
-// --- VPNs ---
-function serverForm(id) {
-  const s = cache.servers.find(x => x._id === id) || {};
-  openDrawer(`<h2>${id ? 'Editar VPN' : 'Nova VPN'}</h2>
-    <p class="muted" style="margin:4px 0 0">Cola aqui o ficheiro .conf do WireGuard. O nome e o endpoint são lidos automaticamente.</p>
-    <label for="fConfig">Configuração WireGuard${id ? ' (deixa vazio para manter a atual)' : ''}</label>
-    <textarea id="fConfig" placeholder="[Interface]&#10;PrivateKey = ...&#10;Address = 10.0.0.2/32&#10;DNS = 1.1.1.1&#10;&#10;[Peer]&#10;PublicKey = ...&#10;Endpoint = vpn.exemplo.pt:51820&#10;AllowedIPs = 0.0.0.0/0"></textarea>
-    <label for="fName">Nome (opcional)</label>
-    <input id="fName" value="${esc(s.name || '')}" placeholder="Se vazio, usa o host do endpoint">
-    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveServer('${id || ''}')">${id ? 'Guardar' : 'Adicionar VPN'}</button></div>`);
-}
-async function saveServer(id) {
-  const body = { name: val('fName') };
-  const config = $('#fConfig').value.trim(); if (config) body.config = config;
-  if (!id && !config) return toast('Cola a configuração WireGuard', true);
-  try {
-    await api(id ? `/admin/servers/${id}` : '/admin/servers', { method: id ? 'PUT' : 'POST', body });
-    closeDrawer(); toast(id ? 'VPN atualizada' : 'VPN adicionada'); servers();
-  } catch (e) { toast(e.message, true); }
-}
-async function viewConfig(id) {
-  try {
-    const c = await api(`/admin/servers/${id}/config`);
-    openDrawer(`<h2>${esc(c.name)}</h2><label>Configuração WireGuard</label><textarea readonly>${esc(c.config)}</textarea>
-      <div class="row"><button onclick="navigator.clipboard.writeText(document.querySelector('#drawer textarea').value).then(()=>toast('Copiado'))">Copiar</button><button class="primary" onclick="closeDrawer()">Fechar</button></div>`);
-  } catch (e) { toast(e.message, true); }
-}
-async function toggleServer(id) {
-  const s = cache.servers.find(x => x._id === id);
-  try { await api(`/admin/servers/${id}`, { method: 'PUT', body: { status: s.status === 'active' ? 'inactive' : 'active' } }); servers(); }
-  catch (e) { toast(e.message, true); }
-}
-async function delServer(id) {
-  const s = cache.servers.find(x => x._id === id);
-  if (!confirm(`Apagar a VPN "${s.name}"? ${s.users ? s.users + ' utilizador(es) passam a VPN automática.' : ''}`)) return;
-  try { await api(`/admin/servers/${id}`, { method: 'DELETE' }); toast('VPN apagada'); servers(); } catch (e) { toast(e.message, true); }
-}
-
-// --- Utilizadores ---
-function userForm(id) {
-  const u = cache.users.find(x => x._id === id) || {};
-  const isAdmin = u.role === 'admin';
-  const opts = `<option value="">Automática (primeira VPN ativa)</option>` +
-    cache.servers.map(s => `<option value="${s._id}" ${(u.assignedVpn?._id || u.assignedVpn) === s._id ? 'selected' : ''}>${esc(s.name)}${s.status !== 'active' ? ' (inativa)' : ''}</option>`).join('');
-  openDrawer(`<h2>${id ? (isAdmin ? 'Mudar password' : 'Editar utilizador') : 'Novo utilizador'}</h2>
-    <label for="fUser">Utilizador</label>
-    <input id="fUser" value="${esc(u.username || u.email || '')}" placeholder="o mesmo da app IPTV" autocomplete="off" ${id ? 'disabled' : ''}>
-    <label for="fPass">${id ? 'Nova password (deixa vazio para manter)' : 'Password'}</label>
-    <input id="fPass" type="password" autocomplete="new-password" placeholder="${id ? '' : 'a mesma da app IPTV'}">
-    ${isAdmin ? '' : `<label for="fVpn">VPN</label><select id="fVpn">${opts}</select>`}
-    <div class="row"><button onclick="closeDrawer()">Cancelar</button><button class="primary" onclick="saveUser('${id || ''}', ${isAdmin})">${id ? 'Guardar' : 'Adicionar utilizador'}</button></div>`);
-}
-async function saveUser(id, isAdmin) {
-  const body = {};
-  const pass = $('#fPass').value; if (pass) body.password = pass;
-  if (!isAdmin) body.assignedVpn = val('fVpn');
-  if (!id) { body.username = val('fUser'); if (!body.username || !pass) return toast('Utilizador e password são obrigatórios', true); }
-  try {
-    await api(id ? `/admin/users/${id}` : '/admin/users', { method: id ? 'PUT' : 'POST', body });
-    closeDrawer(); toast(id ? 'Guardado' : 'Utilizador adicionado'); users();
-  } catch (e) { toast(e.message, true); }
-}
-async function toggleUser(id) {
-  const u = cache.users.find(x => x._id === id);
-  try { await api(`/admin/users/${id}`, { method: 'PUT', body: { active: u.active === false } }); users(); } catch (e) { toast(e.message, true); }
-}
-async function resetQuota(id) {
-  try { await api(`/admin/users/${id}/reset-quota`, { method: 'POST' }); toast('Tráfego reposto a zero'); users(); } catch (e) { toast(e.message, true); }
-}
-async function delUser(id) {
-  const u = cache.users.find(x => x._id === id);
-  if (!confirm(`Apagar o utilizador ${u.username || u.email}? Deixa de conseguir entrar na VPN.`)) return;
-  try { await api(`/admin/users/${id}`, { method: 'DELETE' }); toast('Utilizador apagado'); users(); } catch (e) { toast(e.message, true); }
-}
 
 // ---------- Init ----------
-if (token && me?.role === 'admin') boot();
+if (token && me && ['admin', 'reseller'].includes(me.role)) boot();
 </script>
 </body>
 </html>
