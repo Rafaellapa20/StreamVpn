@@ -3,8 +3,18 @@ const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
 
 const app = express();
+
+// Está atrás do Nginx (proxy reverso) — sem isto, express-rate-limit e o
+// req.ip veriam sempre o IP do Nginx (127.0.0.1) em vez do cliente real.
+app.set('trust proxy', 1);
+
+// CSP desativada: o painel admin (public/index.html) usa <script>/<style>
+// inline sem nonce. As restantes proteções do helmet (HSTS, X-Frame-Options,
+// X-Content-Type-Options, etc.) continuam ativas.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json());
 

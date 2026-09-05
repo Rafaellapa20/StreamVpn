@@ -1,9 +1,19 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const User = require('../models/User');
 const { auth, sign } = require('../middleware/auth');
+
+// Máx. 10 tentativas de login por IP a cada 15 min — mitiga força-bruta.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas tentativas de login. Tenta novamente mais tarde.' }
+});
 
 // Cria só a conta de admin se a BD estiver vazia. A password vem de
 // ADMIN_PASSWORD ou é gerada e impressa UMA VEZ no log. Também migra contas
@@ -23,7 +33,7 @@ async function seedDefaults() {
 }
 
 // Login com username (o mesmo da app IPTV) — aceita também email por compatibilidade.
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { username, email, password } = req.body || {};
     const id = (username || email || '').toLowerCase().trim();
