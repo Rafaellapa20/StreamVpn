@@ -12,15 +12,18 @@ if (!SECRET || SECRET.length < 32) {
 }
 
 // Autenticação: verifica o JWT e coloca { _id, email, role } em req.user
-const auth = (req, res, next) => {
+const auth = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Token não fornecido' });
   try {
     req.user = jwt.verify(token, SECRET);
-    next();
   } catch (err) {
-    res.status(401).json({ error: 'Token inválido ou expirado' });
+    return res.status(401).json({ error: 'Token inválido ou expirado' });
   }
+  // A conta pode ter sido apagada depois de o token ser emitido (ex.: reset do admin)
+  const User = require('../models/User');
+  if (!await User.exists({ _id: req.user._id })) return res.status(401).json({ error: 'Sessão inválida — entra de novo' });
+  next();
 };
 
 // Só admins

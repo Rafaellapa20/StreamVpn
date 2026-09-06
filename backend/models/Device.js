@@ -18,6 +18,8 @@ const deviceSchema = new mongoose.Schema({
   screen: String,          // ex.: "LiveTvActivity", "PlayerActivity"
   playing: String,         // canal/filme atual
   vpnOn: { type: Boolean, default: false },
+  vpnServer: String,       // nome do servidor a que está ligado
+  vpnMode: String,         // wireguard | byedpi | null
   lastScreenshot: String,  // JPEG base64 (data URL) da última captura
   lastScreenshotAt: Date,
   createdAt: { type: Date, default: Date.now }

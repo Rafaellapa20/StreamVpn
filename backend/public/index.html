@@ -264,7 +264,7 @@ async function dashboard() {
 
 // ---------- Utilizadores ----------
 async function users() {
-  $('#view').innerHTML = `<div class="head"><div><h2>Utilizadores</h2><p class="muted" style="margin:0">O mesmo utilizador e password que o cliente usa na app IPTV.</p></div>
+  $('#view').innerHTML = `<div class="head"><div><h2>Utilizadores</h2><p class="muted" style="margin:0">Cada cliente recebe um código de ativação para meter uma vez na app.</p></div>
     <button class="primary" onclick="userForm()">Adicionar utilizador</button></div><div id="tbl"></div>`;
   try {
     [cache.users, cache.servers, cache.dns] = await Promise.all([api('/admin/users'), api('/admin/servers'), api('/admin/dns'), loadStats()]);
@@ -419,8 +419,7 @@ function serverForm(id) {
   const s = cache.servers.find(x => x._id === id) || {};
   openDrawer(`<h2>${id ? 'Editar servidor' : 'Novo servidor VPN'}</h2>
     <label for="fName">Nome</label><input id="fName" value="${esc(s.name || '')}" placeholder="Ex.: Portugal 1">
-    ${id ? '' : `<label for="fCount">WireGuards a gerar</label><input id="fCount" type="number" min="0" max="50" value="5">
-    <div class="note">Gerados automaticamente no servidor WireGuard. Cada cliente usa um; podes gerar mais depois.</div>`}
+    ${id ? '' : `<div class="note">É só isto. Os WireGuards são gerados automaticamente (5 de início; podes gerar mais depois).</div>`}
     <details style="margin-top:16px"><summary class="muted" style="cursor:pointer">Avançado — outro servidor WireGuard</summary>
       <label for="fAgentUrl">URL do agente</label><input id="fAgentUrl" value="${esc(s.agentUrl || '')}" placeholder="vazio = servidor principal">
       <label for="fAgentToken">Token do agente</label><input id="fAgentToken" type="password" placeholder="${id ? 'vazio = manter' : 'vazio = servidor principal'}">
@@ -432,7 +431,6 @@ async function saveServer(id) {
   const name = val('fName'); if (!name) return toast('O nome é obrigatório', true);
   const body = { name, agentUrl: val('fAgentUrl') };
   const tok = $('#fAgentToken').value; if (tok) body.agentToken = tok;
-  if (!id) body.count = Number(val('fCount'));
   try {
     const r = await api(id ? `/admin/servers/${id}` : '/admin/servers', { method: id ? 'PUT' : 'POST', body });
     closeDrawer(); servers();
@@ -570,7 +568,7 @@ function renderDevices() {
   tbl.innerHTML = `<table><thead><tr><th>Utilizador</th><th>Aparelho</th><th>MAC / IP</th><th>Ecrã</th><th>Visto</th><th></th></tr></thead><tbody>` +
     list.map(d => `<tr class="devrow">
       <td><span class="dot ${d.online ? 'active' : 'inactive'}"></span>${esc(devName(d))}</td>
-      <td>${esc(devLabel(d))}<div class="sub2">Android ${esc(d.androidVersion || '?')} · app ${esc(d.appVersion || '?')}${d.vpnOn ? ' · <span style="color:var(--accent)">VPN ON</span>' : ''}</div></td>
+      <td>${esc(devLabel(d))}<div class="sub2">Android ${esc(d.androidVersion || '?')} · app ${esc(d.appVersion || '?')}${d.vpnOn ? ` · <span style="color:var(--accent)">VPN ON${d.vpnServer ? ' · ' + esc(d.vpnServer) : ''}</span>` : ' · <span class="muted">VPN OFF</span>'}</div></td>
       <td class="muted">${esc(d.mac || '—')}<div class="sub2">${esc(d.ip || '')}</div></td>
       <td>${esc(d.screen || '—')}${d.playing ? `<div class="sub2">▶ ${esc(d.playing)}</div>` : ''}</td>
       <td class="muted">${d.online ? '<span style="color:var(--ok)">online</span>' : fmtDateTime(d.lastSeen)}</td>
@@ -629,7 +627,7 @@ function renderDevHead() {
     <span class="muted" style="font-size:12px">${esc(d.mac || devLabel(d))}</span>
     <span class="tag" style="background:#1F4B5A;color:#fff">${esc(d.screen || (d.online ? 'App aberta' : 'Offline'))}</span>
     ${d.playing ? `<span class="muted" style="font-size:12px">▶ ${esc(d.playing)}</span>` : ''}
-    ${d.vpnOn ? '<span class="tag" style="color:var(--accent)">VPN ON</span>' : ''}
+    ${d.vpnOn ? `<span class="tag" style="color:var(--accent)">VPN ON${d.vpnServer ? ' · ' + esc(d.vpnServer) : ''}</span>` : '<span class="tag">VPN OFF</span>'}
     <span class="sp"></span><span class="muted" style="font-size:12px">🕒 ${d.online ? 'online' : 'visto ' + fmtDateTime(d.lastSeen)}</span>`;
 }
 function cmdLog(text) {

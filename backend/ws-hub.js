@@ -28,7 +28,7 @@ const broadcastPanels = (obj) => panels.forEach(p => send(p, obj));
 const publicDevice = (d) => ({
   deviceId: d.deviceId, username: d.username, userId: d.userId, mac: d.mac, model: d.model, brand: d.brand,
   androidVersion: d.androidVersion, appVersion: d.appVersion, ip: d.ip, online: d.online, lastSeen: d.lastSeen,
-  screen: d.screen, playing: d.playing, vpnOn: d.vpnOn, lastScreenshotAt: d.lastScreenshotAt
+  screen: d.screen, playing: d.playing, vpnOn: d.vpnOn, vpnServer: d.vpnServer, vpnMode: d.vpnMode, lastScreenshotAt: d.lastScreenshotAt
 });
 
 async function log(evt) { try { await DeviceEvent.create(evt); } catch (e) { /* nunca bloqueia */ } }
@@ -72,7 +72,7 @@ function attach(server) {
             ...(info.mac && { mac: info.mac }), ...(info.model && { model: info.model }), ...(info.brand && { brand: info.brand }),
             ...(info.androidVersion && { androidVersion: info.androidVersion }), ...(info.appVersion && { appVersion: info.appVersion }),
             ...('screen' in info && { screen: info.screen }), ...('playing' in info && { playing: info.playing }),
-            ...('vpnOn' in info && { vpnOn: !!info.vpnOn })
+            ...('vpnOn' in info && { vpnOn: !!info.vpnOn }), ...('vpnServer' in info && { vpnServer: info.vpnServer }), ...('vpnMode' in info && { vpnMode: info.vpnMode })
           };
           const d = await Device.findOneAndUpdate({ deviceId }, upd, { upsert: true, new: true }).lean();
           const entry = devices.get(deviceId) || { watchers: new Set() };
