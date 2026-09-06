@@ -30,7 +30,7 @@ router.get('/stats', async (req, res) => {
     User.findById(req.user._id).select('credits role')
   ]);
   res.json({ users, activeUsers, expired, servers, wireguards: wgs[0]?.n || 0, activeConnections: active,
-    credits: isAdmin(me) ? null : me.credits, packs: PACKS });
+    credits: me && isAdmin(me) ? null : me?.credits, packs: PACKS });
 });
 
 // ---- DNS ----
