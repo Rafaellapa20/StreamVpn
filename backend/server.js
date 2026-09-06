@@ -7,6 +7,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { auth } = require('./middleware/auth');
 const { generateTurnCredentials } = require('./utils/turn');
+const { resolveCountry } = require('./utils/ipinfo');
 const wsHub = require('./ws-hub');
 
 const app = express();
@@ -26,6 +27,21 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://mongo:27017/streamvpn')
   .then(async () => {
     console.log('✅ MongoDB conectado');
     await require('./routes/auth').seedDefaults();
+
+    // Resolve country for existing servers without it (one-time background migration)
+    setTimeout(async () => {
+      try {
+        const VpnServer = require('./models/VpnServer');
+        const servers = await VpnServer.find({ $or: [{ country: '' }, { country: null }] });
+        for (const s of servers) {
+          const ep = s.wireguards.find(w => w.endpoint)?.endpoint || '';
+          if (!ep) continue;
+          const { country, countryName } = await resolveCountry(ep);
+          if (country) { s.country = country; s.countryName = countryName; await s.save(); }
+        }
+        console.log('✅ Países dos servidores VPN resolvidos');
+      } catch (e) { console.warn('⚠️ Erro ao resolver países:', e.message); }
+    }, 5000);
   })
   .catch(err => console.error('❌ MongoDB erro:', err));
 

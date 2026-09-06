@@ -23,6 +23,8 @@ const userSchema = new mongoose.Schema({
   expiresAt: Date,
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
+  forceWireguard: { type: Boolean, default: false },
+
   // --- Só para admin/reseller ---
   credits: { type: Number, default: 0 },
 

@@ -6,6 +6,7 @@ const VpnServer = require('../models/VpnServer');
 const VpnLog = require('../models/VpnLog');
 const Dns = require('../models/Dns');
 const { adminAuth } = require('../middleware/auth');
+const { resolveCountry } = require('../utils/ipinfo');
 
 router.use(adminAuth);
 
@@ -78,6 +79,8 @@ async function generateWireguards(s, count) {
 // ---- Servidores VPN (grupos de WireGuards) ----
 const serverView = (s, usersById = {}) => ({
   _id: s._id, name: s.name, status: s.status, createdAt: s.createdAt,
+  country: s.country || '',
+  countryName: s.countryName || '',
   users: usersById[String(s._id)] || 0,
   hasAgent: !!agentOf(s).url,
   wireguards: s.wireguards.map(w => ({ _id: w._id, name: w.name, endpoint: w.endpoint, active: w.active, assigned: w.assigned }))
@@ -101,6 +104,13 @@ router.post('/servers', async (req, res) => {
     const count = Math.min(Math.max(parseInt(req.body.count ?? 5), 0), 50);
     let warning;
     if (count > 0) { try { await generateWireguards(s, count); } catch (e) { warning = e.message; } }
+    // Resolve country from the first wireguard endpoint (background)
+    const epForCountry = s.wireguards.find(w => w.endpoint)?.endpoint || req.body.endpoint || '';
+    if (epForCountry) {
+      resolveCountry(epForCountry).then(async ({ country, countryName }) => {
+        if (country) { s.country = country; s.countryName = countryName; await s.save(); }
+      }).catch(() => {});
+    }
     res.status(201).json({ ...serverView(s), warning });
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -111,6 +121,15 @@ router.post('/servers/:id/generate', async (req, res) => {
     const s = await VpnServer.findById(req.params.id);
     if (!s) return res.status(404).json({ error: 'Servidor não encontrado' });
     await generateWireguards(s, Math.min(Math.max(parseInt(req.body.count ?? 5), 1), 50));
+    // Resolve country if not yet set
+    if (!s.country) {
+      const ep = s.wireguards.find(w => w.endpoint)?.endpoint || '';
+      if (ep) {
+        resolveCountry(ep).then(async ({ country, countryName }) => {
+          if (country) { s.country = country; s.countryName = countryName; await s.save(); }
+        }).catch(() => {});
+      }
+    }
     res.json(serverView(s));
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -123,6 +142,11 @@ router.put('/servers/:id', async (req, res) => {
   if (req.body.agentToken) upd.agentToken = req.body.agentToken;
   const s = await VpnServer.findByIdAndUpdate(req.params.id, upd, { new: true });
   if (!s) return res.status(404).json({ error: 'Servidor não encontrado' });
+  if (req.body.endpoint) {
+    resolveCountry(req.body.endpoint).then(async ({ country, countryName }) => {
+      if (country) { s.country = country; s.countryName = countryName; await s.save(); }
+    }).catch(() => {});
+  }
   res.json(serverView(s));
 });
 
@@ -176,7 +200,7 @@ router.delete('/servers/:id/wireguards/:wgId', async (req, res) => {
 });
 
 // ---- Utilizadores ----
-const userSelect = '-password';
+const userSelect = '-password forceWireguard';
 router.get('/users', async (req, res) =>
   res.json(await User.find({ role: 'user' }).select(userSelect).populate('vpnServers', 'name status').populate('createdBy', 'username').sort({ createdAt: -1 })));
 
@@ -208,7 +232,8 @@ router.post('/users', async (req, res) => {
       mac: mac || undefined, notes, requireClientApp: !!requireClientApp,
       dns: Array.isArray(dns) ? dns : [], vpnServers,
       activationCode: await uniqueCode(),
-      packMonths: months, expiresAt: addMonths(new Date(), months), createdBy: creator._id
+      packMonths: months, expiresAt: addMonths(new Date(), months), createdBy: creator._id,
+      forceWireguard: !!req.body.forceWireguard
     });
     if (!isAdmin(creator)) await User.updateOne({ _id: creator._id }, { $inc: { credits: -cost } });
 
@@ -230,6 +255,7 @@ router.put('/users/:id', async (req, res) => {
   if (Array.isArray(b.vpnServers)) upd.vpnServers = b.vpnServers.filter(Boolean);
   if (b.monthlyBandwidth) upd['quota.monthlyBandwidth'] = Number(b.monthlyBandwidth);
   if (b.credits !== undefined && isAdmin(req.user)) upd.credits = Number(b.credits);
+  if (b.forceWireguard !== undefined) upd.forceWireguard = !!b.forceWireguard;
   const u = await User.findByIdAndUpdate(req.params.id, upd, { new: true }).select(userSelect).populate('vpnServers', 'name');
   if (!u) return res.status(404).json({ error: 'Utilizador não encontrado' });
   res.json(u);

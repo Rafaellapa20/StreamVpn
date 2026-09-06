@@ -194,6 +194,10 @@ function toast(msg, bad) {
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 3000);
 }
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function countryToFlag(code) {
+  if (!code || code.length !== 2) return '';
+  return code.toUpperCase().split('').map(c => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))).join('');
+}
 const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-PT') : '—';
 const fmtDateTime = d => d ? new Date(d).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 const fmtBytes = b => !b ? '0' : b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b > 1e6 ? (b / 1e6).toFixed(0) + ' MB' : (b / 1e3).toFixed(0) + ' KB';
@@ -332,6 +336,10 @@ function userForm(id) {
       <label class="switch" style="margin:0"><input type="checkbox" id="fApp" ${u.requireClientApp ? 'checked' : ''}> App Cliente obrigatória — verificar e instalar</label>
       <div class="note">Se não marcar, entra direto sem verificação.</div>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+      <input type="checkbox" id="userForceWireguard" ${u.forceWireguard ? 'checked' : ''}>
+      <span>Forçar VPN WireGuard (ignora ByeDPI)</span>
+    </label>
     <label for="fDnsSel">DNS (múltiplos)</label>
     <div style="display:flex;gap:8px"><select id="fDnsSel">${dnsOpts}</select><button type="button" onclick="addDns()">Adicionar</button></div>
     <div class="note">A app tenta o primeiro; se falhar, passa ao seguinte.</div>
@@ -344,7 +352,7 @@ function userForm(id) {
   renderDnsChips();
 }
 async function saveUser(id) {
-  const body = { notes: val('fNotes'), requireClientApp: $('#fApp').checked, dns: formDns, vpnServers: [val('fSrvSel')].filter(Boolean) };
+  const body = { notes: val('fNotes'), requireClientApp: $('#fApp').checked, forceWireguard: document.getElementById('userForceWireguard').checked, dns: formDns, vpnServers: [val('fSrvSel')].filter(Boolean) };
   const pass = $('#fPass').value; if (pass) body.password = pass;
   if (!id) {
     body.username = val('fUser'); body.packMonths = Number(val('fPack'));
@@ -394,9 +402,12 @@ async function servers() {
   try {
     cache.servers = await api('/admin/servers'); $('#nServers').textContent = cache.servers.filter(s => s.status === 'active').length;
     if (!cache.servers.length) { $('#tbl').innerHTML = `<div class="empty">Ainda não há servidores VPN. Clica em "Adicionar servidor", dá-lhe um nome e pronto — os WireGuards são gerados automaticamente.</div>`; return; }
-    $('#tbl').innerHTML = cache.servers.map(s => `
+    $('#tbl').innerHTML = cache.servers.map(s => {
+      const flagEmoji = s.country ? countryToFlag(s.country) : '';
+      const countryLabel = s.countryName ? ` ${flagEmoji} ${s.countryName}` : '';
+      return `
       <table style="margin-bottom:14px"><tbody>
-        <tr><td style="width:40%"><span class="dot ${s.status}"></span><b>${esc(s.name)}</b><div class="note">${s.wireguards.filter(w => w.active).length}/${s.wireguards.length} WireGuards ativos · ${s.users} utilizador${s.users === 1 ? '' : 'es'}</div></td>
+        <tr><td style="width:40%"><span class="dot ${s.status}"></span><b>${esc(s.name)}</b>${countryLabel ? `<span class="muted" style="font-size:13px;margin-left:8px">${countryLabel}</span>` : ''}<div class="note">${s.wireguards.filter(w => w.active).length}/${s.wireguards.length} WireGuards ativos · ${s.users} utilizador${s.users === 1 ? '' : 'es'}</div></td>
           <td class="actions">
             <button class="ghost" onclick="generateWg('${s._id}')">+ Gerar WireGuards</button>
             <button class="ghost" onclick="wgForm('${s._id}')" title="Colar uma configuração à mão">Colar .conf</button>
@@ -412,7 +423,8 @@ async function servers() {
               <button class="ghost" onclick="toggleWg('${s._id}','${w._id}',${!w.active})">${w.active ? 'Desativar' : 'Ativar'}</button>
               <button class="ghost danger" onclick="delWg('${s._id}','${w._id}')">Apagar</button></div>`).join('') + `</div>`
             : `<div class="note" style="margin-left:22px">Sem WireGuards — este servidor ainda não pode ser atribuído a utilizadores.</div>`}
-        </td></tr></tbody></table>`).join('');
+        </td></tr></tbody></table>`;
+    }).join('');
   } catch (e) { toast(e.message, true); }
 }
 function serverForm(id) {
@@ -551,6 +563,16 @@ function onDevicesChanged() {
 }
 const devName = d => d.username || '—';
 const devLabel = d => [d.brand, d.model].filter(Boolean).join(' ') || 'Dispositivo';
+function vpnModeLabel(d) {
+  if (!d.vpnOn) return '<span class="muted">VPN OFF</span>';
+  if (d.vpnMode === 'byedpi') return '<span style="color:var(--ok)">🛡 Proteção local</span>';
+  if (d.vpnMode === 'wireguard') {
+    const flag = d.vpnCountry ? countryToFlag(d.vpnCountry) : '';
+    const srv = d.vpnServer ? esc(d.vpnServer) : '';
+    return `<span style="color:var(--accent)">🔒 VPN · ${srv}${flag ? ' ' + flag : ''}</span>`;
+  }
+  return `<span style="color:var(--accent)">VPN ON${d.vpnServer ? ' · ' + esc(d.vpnServer) : ''}</span>`;
+}
 
 // ---------- Dispositivos ----------
 async function devices(filterUser) {
@@ -568,7 +590,7 @@ function renderDevices() {
   tbl.innerHTML = `<table><thead><tr><th>Utilizador</th><th>Aparelho</th><th>MAC / IP</th><th>Ecrã</th><th>Visto</th><th></th></tr></thead><tbody>` +
     list.map(d => `<tr class="devrow">
       <td><span class="dot ${d.online ? 'active' : 'inactive'}"></span>${esc(devName(d))}</td>
-      <td>${esc(devLabel(d))}<div class="sub2">Android ${esc(d.androidVersion || '?')} · app ${esc(d.appVersion || '?')}${d.vpnOn ? ` · <span style="color:var(--accent)">VPN ON${d.vpnServer ? ' · ' + esc(d.vpnServer) : ''}</span>` : ' · <span class="muted">VPN OFF</span>'}</div></td>
+      <td>${esc(devLabel(d))}<div class="sub2">Android ${esc(d.androidVersion || '?')} · app ${esc(d.appVersion || '?')} · ${vpnModeLabel(d)}</div></td>
       <td class="muted">${esc(d.mac || '—')}<div class="sub2">${esc(d.ip || '')}</div></td>
       <td>${esc(d.screen || '—')}${d.playing ? `<div class="sub2">▶ ${esc(d.playing)}</div>` : ''}</td>
       <td class="muted">${d.online ? '<span style="color:var(--ok)">online</span>' : fmtDateTime(d.lastSeen)}</td>
@@ -627,7 +649,7 @@ function renderDevHead() {
     <span class="muted" style="font-size:12px">${esc(d.mac || devLabel(d))}</span>
     <span class="tag" style="background:#1F4B5A;color:#fff">${esc(d.screen || (d.online ? 'App aberta' : 'Offline'))}</span>
     ${d.playing ? `<span class="muted" style="font-size:12px">▶ ${esc(d.playing)}</span>` : ''}
-    ${d.vpnOn ? `<span class="tag" style="color:var(--accent)">VPN ON${d.vpnServer ? ' · ' + esc(d.vpnServer) : ''}</span>` : '<span class="tag">VPN OFF</span>'}
+    <span class="tag">${vpnModeLabel(d)}</span>
     <span class="sp"></span><span class="muted" style="font-size:12px">🕒 ${d.online ? 'online' : 'visto ' + fmtDateTime(d.lastSeen)}</span>`;
 }
 function cmdLog(text) {

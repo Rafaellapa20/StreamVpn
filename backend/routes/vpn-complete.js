@@ -74,7 +74,9 @@ router.get('/vpn/available-servers', auth, async (req, res) => {
 // A app usa `config`; se a ligação falhar, passa ao próximo em `fallbacks`.
 router.get('/vpn/config', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('active expiresAt vpnServers dns requireClientApp').populate('vpnServers');
+    const user = await User.findById(req.user._id)
+      .select('active expiresAt vpnServers dns requireClientApp forceWireguard')
+      .populate('vpnServers');
     if (!user) return res.status(404).json({ error: 'Utilizador não encontrado' });
     if (user.active === false) return res.status(403).json({ error: 'Conta desativada' });
     if (user.expiresAt && user.expiresAt < new Date()) return res.status(403).json({ error: 'Conta expirada', expiresAt: user.expiresAt });
@@ -85,7 +87,7 @@ router.get('/vpn/config', auth, async (req, res) => {
     const entries = [];
     for (const s of servers) {
       const wg = await s.nextWireguard();
-      if (wg) entries.push({ server: { id: s._id, name: s.name }, wireguard: { id: wg._id, name: wg.name, endpoint: wg.endpoint }, config: wg.config });
+      if (wg) entries.push({ server: { id: s._id, name: s.name, country: s.country || '', countryName: s.countryName || '' }, wireguard: { id: wg._id, name: wg.name, endpoint: wg.endpoint }, config: wg.config });
     }
     const [primary, ...fallbacks] = entries;
     res.json({
@@ -94,6 +96,7 @@ router.get('/vpn/config', auth, async (req, res) => {
       fallbacks,
       dns: user.dns || [],
       requireClientApp: !!user.requireClientApp,
+      forceWireguard: !!user.forceWireguard,
       expiresAt: user.expiresAt
     });
   } catch (err) {

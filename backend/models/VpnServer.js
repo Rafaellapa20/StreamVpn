@@ -18,6 +18,8 @@ const vpnServerSchema = new mongoose.Schema({
   agentUrl: String,
   agentToken: String,
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+  country:     { type: String, default: '' },    // ISO 3166-1 alpha-2 (e.g. 'PT')
+  countryName: { type: String, default: '' },    // Human name (e.g. 'Portugal')
   createdAt: { type: Date, default: Date.now }
 });
 
