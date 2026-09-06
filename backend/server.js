@@ -38,6 +38,8 @@ app.get('/api/health', (req, res) => res.json({ status: 'online', version: '1.1.
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin/devices', require('./routes/devices'));
+app.use('/api/pairing', require('./routes/pairing'));
+app.use('/api/sync', require('./routes/sync'));
 app.use('/api', require('./routes/vpn-complete'));
 
 // Credenciais TURN temporárias (usadas pela app e pelo painel para o WebRTC
