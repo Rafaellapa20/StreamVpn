@@ -21,7 +21,7 @@ services:
       MONGODB_URI: mongodb://mongo:27017/streamvpn
       PORT: 3000
     volumes:
-      - ./backend:/app/backend
+      - /opt/iptv-meta:/opt/iptv-meta:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
